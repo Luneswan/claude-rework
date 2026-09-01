@@ -1,0 +1,30 @@
+# Generated from YOUR transcripts. None of this belongs in a public repository:
+# the corpus is your conversations, the cases are built out of them, and the
+# event log is what you actually ran.
+recall_corpus.jsonl
+recall_corpus.df.json
+recall_corpus.manifest.json
+recall_corpus.vec.npy
+recall_corpus.vec.meta.json
+recall_corpus.vec.healing
+recall_model/
+recall_cases.json
+recall_card.json
+recall_card.salt
+recall_cards_pulled.json
+recall_tuning.json
+events.jsonl
+skills/recall/tests/known_item_cases.json
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# editors / os
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

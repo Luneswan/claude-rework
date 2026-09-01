@@ -1,0 +1,9 @@
+# recall runs on the standard library alone. These two are optional and buy you
+# semantic ranking; without them it falls back to lexical scoring and still works.
+#
+#   pip install -r requirements.txt
+#
+# model2vec pulls a ~36 MB static embedding model once, then never touches the
+# network again. No GPU, no API key, no per-query model call.
+numpy>=1.21
+model2vec>=0.3
