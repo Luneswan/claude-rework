@@ -182,7 +182,7 @@ the waste each of them warns about.
 ## 8. Verify it, and go deeper
 
 ```bash
-python ~/.claude/skills/recall/tests/run_tests.py       # 7 suites, each with a floor
+python ~/.claude/skills/recall/tests/run_tests.py       # 8 suites, each with a floor
 python ~/.claude/skills/recall/tests/simulate.py        # foreign machines + optimizer
 ```
 
@@ -195,6 +195,7 @@ python ~/.claude/skills/recall/tests/simulate.py        # foreign machines + opt
 | capture | the hook records work, drops noise, redacts secrets, and cannot fail a turn |
 | vectors | a stale or misaligned matrix is refused; a verified prefix is reused |
 | federation | hostile cards are rejected without crashing the pull or injecting keys |
+| concurrency | three simultaneous builds yield zero duplicates and leave no lock behind |
 
 Non-zero exit if any suite drops below its floor. **Floors only ratchet up** - a
 change that cannot hold one is the thing that is wrong.
