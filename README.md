@@ -64,7 +64,7 @@ At Anthropic's list price that is **$149/month** on Opus 5 ($5.00 per million
 input tokens), or **$60** on Sonnet 5 ($2.00). Adjust the numbers to match how
 you actually work.
 
-On a Pro or Max plan you are not billed per token, so this is not money — it is
+On a Pro or Max plan you are not billed per token, so this is not money, it is
 headroom. Those tokens are context you no longer spend re-deriving things you
 already knew, which is work you get done before hitting a limit. How many extra
 messages that buys depends on rate limits Anthropic does not publish, so this
@@ -273,8 +273,8 @@ The four types decide how a fact is treated and whether it travels with you:
 Notes of type `user` and `feedback` are what build your profile, so they are the
 ones that make a new account feel like it already knows you.
 
-Anything the repository already records — how the code is structured, what git
-history says — is better left unsaved. A note that restates the codebase costs
+Anything the repository already records, how the code is structured, what git
+history says, is better left unsaved. A note that restates the codebase costs
 context on every search and goes stale silently.
 
 ---
@@ -368,8 +368,8 @@ No prompts, answers, file paths, project names, or note contents. The machine id
 is a random local value, not a hostname.
 
 Commands written to the activity log are scrubbed before they are stored.
-Anything matching a credential pattern — `sk-`, `ghp_`, `hf_`, `xox`, `AKIA`,
-`--password`, authorisation headers, `*_TOKEN=` assignments — is replaced rather
+Anything matching a credential pattern (`sk-`, `ghp_`, `hf_`, `xox`, `AKIA`,
+`--password`, authorisation headers, `*_TOKEN=` assignments) is replaced rather
 than recorded.
 
 ---
