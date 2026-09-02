@@ -140,8 +140,19 @@ def digest(weeks=4, project=None):
               + str(len(w["projects"])) + " project(s)")
         for proj, c in sorted(w["projects"].items(), key=lambda kv: -kv[1])[:4]:
             print("     " + str(c).rjust(5) + "  " + proj[:44])
-        for _, proj, first in sorted(w["samples"], reverse=True)[:3]:
+        # Dedupe before slicing. A long message is stored as several overlapping
+        # chunks and a repeated prompt appears many times, so taking the newest
+        # three raw samples printed the same sentence three times.
+        seen, shown = set(), 0
+        for _, proj, first in sorted(w["samples"], reverse=True):
+            key = "".join(ch for ch in first.lower() if ch.isalnum())[:60]
+            if key in seen:
+                continue
+            seen.add(key)
             print("        - " + first[:100])
+            shown += 1
+            if shown == 3:
+                break
     if not per_week:
         print("  nothing in that window")
     return 0

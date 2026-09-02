@@ -105,25 +105,69 @@ def _importable(mod):
 
 # ------------------------------------------------------------------ files ---
 
+def _sync_file(src, dst):
+    """Overwrite one shipped file. Returns 'new', 'updated' or 'same'."""
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    if not os.path.exists(dst):
+        shutil.copy2(src, dst)
+        return "new"
+    try:
+        same = (os.path.getsize(src) == os.path.getsize(dst)
+                and open(src, "rb").read() == open(dst, "rb").read())
+    except OSError:
+        same = False
+    if same:
+        return "same"
+    shutil.copy2(src, dst)
+    return "updated"
+
+
 def copy_tree():
-    os.makedirs(os.path.dirname(SKILL_DST), exist_ok=True)
-    src = os.path.join(HERE, "skills", "recall")
-    if os.path.exists(SKILL_DST):
-        # keep anything the user generated; replace only what we ship
-        for sub in ("scripts", "tests", "reference"):
-            dst = os.path.join(SKILL_DST, sub)
-            shutil.rmtree(dst, ignore_errors=True)
-            shutil.copytree(os.path.join(src, sub), dst)
-        shutil.copy(os.path.join(src, "SKILL.md"), SKILL_DST)
-        print("  updated skill      %s" % SKILL_DST)
-    else:
-        shutil.copytree(src, SKILL_DST)
-        print("  installed skill    %s" % SKILL_DST)
-    os.makedirs(HOOKS_DST, exist_ok=True)
+    """Update in place. Never delete.
+
+    Re-running the installer - by accident, or to pick up a new version - must
+    behave like an update, not a reinstall. Earlier versions removed
+    scripts/, tests/ and reference/ before copying, which also removed anything
+    the user had put there and the generated known_item_cases.json. Now every
+    file the package ships is written over the top and nothing else is touched,
+    so a second install can only add and refresh, never destroy.
+
+    Your corpus, notes, activity log and tuning live outside this tree and were
+    never involved either way.
+    """
+    counts = {"new": 0, "updated": 0, "same": 0}
+    kept = 0
+    src_root = os.path.join(HERE, "skills", "recall")
+    shipped = set()
+    for dirpath, _dirnames, filenames in os.walk(src_root):
+        for name in filenames:
+            if name.endswith(".pyc") or "__pycache__" in dirpath:
+                continue
+            s = os.path.join(dirpath, name)
+            rel = os.path.relpath(s, src_root)
+            shipped.add(rel.replace("\\", "/"))
+            counts[_sync_file(s, os.path.join(SKILL_DST, rel))] += 1
+
+    # Anything already there that we do not ship is the user's. Count it so the
+    # output can say plainly that it was left alone.
+    if os.path.isdir(SKILL_DST):
+        for dirpath, _dirnames, filenames in os.walk(SKILL_DST):
+            for name in filenames:
+                rel = os.path.relpath(os.path.join(dirpath, name),
+                                      SKILL_DST).replace("\\", "/")
+                if rel not in shipped and "__pycache__" not in rel:
+                    kept += 1
+
+    verb = "installed" if counts["new"] and not counts["updated"] else "updated"
+    print("  %-9s skill    %s" % (verb, SKILL_DST))
+    print("             %d new, %d updated, %d unchanged%s"
+          % (counts["new"], counts["updated"], counts["same"],
+             ", %d of your own file(s) left alone" % kept if kept else ""))
+
     for s in HOOK_SCRIPTS:
-        shutil.copy(os.path.join(HERE, "hooks", s), HOOKS_DST)
-    os.makedirs(MCP_DST, exist_ok=True)
-    shutil.copy(os.path.join(HERE, "mcp", "recall_mcp.py"), MCP_DST)
+        _sync_file(os.path.join(HERE, "hooks", s), os.path.join(HOOKS_DST, s))
+    _sync_file(os.path.join(HERE, "mcp", "recall_mcp.py"),
+               os.path.join(MCP_DST, "recall_mcp.py"))
     print("  installed hooks    %s (%d scripts)" % (HOOKS_DST, len(HOOK_SCRIPTS)))
     print("  installed mcp      %s" % MCP_DST)
 
@@ -343,15 +387,28 @@ def doctor(verbose=True):
     if not info["index"]["corpus"]:
         problems.append(("index", "search index not built"))
 
+    # PATH is advice, not breakage. Everything still works through
+    # `python -m claude_rework`, and the hooks and MCP server do not use PATH at
+    # all - they were written with absolute interpreter paths. Reporting this as
+    # a failure would make `doctor` exit non-zero on a healthy install.
+    notes = []
+    cmd = info.get("command") or {}
+    if cmd and not cmd.get("on_path"):
+        notes = _detect.path_advice(cmd)
+
     if verbose:
         if problems:
             print("  %d problem(s):" % len(problems))
             for area, msg in problems:
                 print("    [%s] %s" % (area, msg))
             print()
-            print("  fix them all with:  claude-rework repair")
+            print("  fix them with:  claude-rework repair")
         else:
             print("  healthy - every surface found is connected and every path resolves")
+        if notes:
+            print()
+            for line in notes:
+                print(line)
     return problems
 
 
@@ -499,8 +556,16 @@ def main(argv=None):
     print('      "what did we decide about the retry logic?"')
     print('      "where did we leave off yesterday?"')
     print()
-    print("  Check any time:    claude-rework doctor")
-    print("  Changing accounts: claude-rework export memory.zip")
+
+    cmd = _detect.command_on_path()
+    if cmd["on_path"]:
+        print("  From any terminal, any directory:")
+        print("      claude-rework doctor      check it is still connected")
+        print("      claude-rework export memory.zip    move to another account")
+    else:
+        print()
+        for line in _detect.path_advice(cmd):
+            print(line)
     return 0
 
 

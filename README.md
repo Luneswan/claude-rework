@@ -112,8 +112,31 @@ It then installs the optional semantic search libraries and builds your index
 immediately. You do not have to open a session or send a message first, which
 matters if you install it in order to migrate straight away.
 
-It backs up any configuration file before changing it, and running it a second
-time changes nothing.
+It backs up any configuration file before changing it.
+
+Running it again is safe. A second install updates the files that shipped with
+the new version and leaves everything else alone, including anything you added
+yourself and your generated test cases. Your index, notes, activity log and
+tuning live outside the installed directory and are never touched by an install
+or a reinstall. The output tells you what it did:
+
+```
+  updated   skill    ~/.claude/skills/recall
+            0 new, 3 updated, 11 unchanged, 2 of your own file(s) left alone
+```
+
+### If the command is not found
+
+`pip` puts the `claude-rework` executable in its scripts directory, and on some
+setups that directory is not on your PATH, so a new terminal reports the command
+as missing even though it installed correctly. Both the installer and
+`claude-rework doctor` detect this and print the fix. You can always use:
+
+```bash
+python -m claude_rework status
+```
+
+which works from any directory on any machine where Python does.
 
 ---
 
@@ -299,6 +322,11 @@ actually be used and names anything wrong; `repair` fixes all of it.
 `uninstall` removes the hooks, the MCP entry, and the installed files, and leaves
 your index and notes alone. It tells you exactly which files it left behind. If
 you want your memory gone as well, delete those files, or export them first.
+
+Every command works from any directory. Nothing needs you to be inside a
+particular project, because the index lives in your home directory rather than
+alongside your code. `--this-project` is the only flag that pays attention to
+where you are.
 
 ---
 

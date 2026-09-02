@@ -81,6 +81,57 @@ def python_info():
             "supported": sys.version_info >= (3, 9)}
 
 
+def command_on_path(name="claude-rework"):
+    """Can the user type this in a fresh terminal, from any directory?
+
+    pip drops the executable in its scripts directory. A --user install on
+    Windows, or a system Python whose scripts directory was never added, leaves
+    that directory off PATH - so the command looks missing while the package is
+    installed fine. Detect it and hand back the directory plus the two fixes.
+    """
+    found = shutil.which(name)
+    scripts = ""
+    try:
+        import sysconfig
+        scripts = sysconfig.get_path("scripts") or ""
+        if not os.path.exists(os.path.join(scripts, name + (".exe" if os.name == "nt" else ""))):
+            for scheme in ("nt_user", "posix_user"):
+                try:
+                    cand = sysconfig.get_path("scripts", scheme)
+                except Exception:
+                    continue
+                if cand and os.path.exists(os.path.join(
+                        cand, name + (".exe" if os.name == "nt" else ""))):
+                    scripts = cand
+                    break
+    except Exception:
+        pass
+    module_form = "%s -m claude_rework" % os.path.basename(sys.executable)
+    return {"name": name, "on_path": bool(found), "resolved": found or "",
+            "scripts_dir": scripts, "module_form": module_form}
+
+
+def path_advice(cmd):
+    """The lines install and doctor print when the command is not on PATH."""
+    lines = ["  '%s' is installed but not on your PATH, so a new terminal will"
+             % cmd["name"],
+             "  not find it. Either works:",
+             "",
+             "    1. Use it through Python, which always works:",
+             "         %s status" % cmd["module_form"],
+             ""]
+    if cmd["scripts_dir"]:
+        lines.append("    2. Add its directory to PATH once:")
+        if os.name == "nt":
+            lines.append('         setx PATH "%%PATH%%;%s"' % cmd["scripts_dir"])
+            lines.append("       then open a new terminal.")
+        else:
+            lines.append('         echo \'export PATH="$PATH:%s"\' >> ~/.profile'
+                         % cmd["scripts_dir"])
+            lines.append("       then open a new terminal.")
+    return lines
+
+
 def dependencies():
     out = {}
     for mod in ("numpy", "model2vec"):
@@ -166,6 +217,7 @@ def detect(hook_scripts=(), mcp_key="claude-rework"):
         "os": {"system": platform.system(), "release": platform.release(),
                "machine": platform.machine()},
         "python": python_info(),
+        "command": command_on_path(),
         "deps": dependencies(),
         "claude_home": root,
         "surfaces": surfaces,
@@ -208,6 +260,12 @@ def summary(info=None, hook_scripts=()):
                      % " ".join(missing))
     else:
         lines.append("  ranking  lexical + semantic")
+    cmd = info.get("command") or {}
+    if cmd:
+        lines.append("  command  %s"
+                     % ("`%s` on PATH, usable from any directory" % cmd["name"]
+                        if cmd["on_path"]
+                        else "NOT on PATH - use `%s`" % cmd["module_form"]))
     return "\n".join(lines)
 
 
