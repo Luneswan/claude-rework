@@ -14,7 +14,11 @@ recall_card.salt
 recall_cards_pulled.json
 recall_tuning.json
 events.jsonl
-skills/recall/tests/known_item_cases.json
+claude_recall/payload/skills/recall/tests/known_item_cases.json
+
+# packaging output
+build/
+dist/
 
 # python
 __pycache__/

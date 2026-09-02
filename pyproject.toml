@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "recl"
+version = "1.2.0"
+description = "Local, automatic memory for Claude Code. Remembers past sessions in 0.7s for ~2.5k tokens instead of 211k. Nothing leaves your machine."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.9"
+authors = [{ name = "Luneswan" }]
+keywords = [
+  "claude", "claude-code", "claude-desktop", "anthropic", "memory", "recall",
+  "context-window", "token-optimization", "mcp", "mcp-server", "rag",
+  "local-first", "privacy", "developer-tools", "llm",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Software Development",
+  "Topic :: Utilities",
+]
+# The core is standard library only. Semantic ranking is an extra.
+dependencies = []
+
+[project.optional-dependencies]
+semantic = ["numpy>=1.21", "model2vec>=0.3"]
+
+[project.urls]
+Homepage = "https://github.com/Luneswan/claude-recall"
+Repository = "https://github.com/Luneswan/claude-recall"
+Issues = "https://github.com/Luneswan/claude-recall/issues"
+Changelog = "https://github.com/Luneswan/claude-recall/releases"
+
+[project.scripts]
+recl = "claude_recall.cli:main"
+claude-recall = "claude_recall.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["claude_recall*"]
+
+[tool.setuptools.package-data]
+"claude_recall.payload" = ["**/*"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["__pycache__/*", "*.pyc", "known_item_cases.json"]

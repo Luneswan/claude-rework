@@ -1,0 +1,47 @@
+name: ci
+
+# The clean-room install IS the test: a machine that has never seen recall,
+# synthetic transcripts, graphify absent from PATH. Three operating systems,
+# because the hook-path bug that killed everything for hours was Windows-only.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  clean-room:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.10", "3.12"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: optional deps (semantic ranking)
+        run: python -m pip install -r requirements.txt
+      - name: clean-room install and use
+        run: python tests/clean_room_test.py
+        env:
+          PYTHONIOENCODING: utf-8
+          HF_HUB_DISABLE_PROGRESS_BARS: "1"
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade build twine
+      - run: python -m build
+      - run: python -m twine check dist/*
+      - name: install the wheel and run the CLI
+        run: |
+          python -m pip install dist/*.whl
+          claude-recall --help

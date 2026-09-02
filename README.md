@@ -1,24 +1,31 @@
-# recall
+# recl
 
-**Claude forgets everything between sessions. This makes it remember, without burning your context window.**
+**Local, automatic memory for Claude Code.** Claude forgets everything between
+sessions; this makes it remember, without burning your context window.
+
+[![PyPI](https://img.shields.io/pypi/v/recl?label=pypi)](https://pypi.org/project/recl/)
+[![CI](https://github.com/Luneswan/claude-recall/actions/workflows/ci.yml/badge.svg)](https://github.com/Luneswan/claude-recall/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/pypi/pyversions/recl)](https://pypi.org/project/recl/)
+[![License: MIT](https://img.shields.io/github/license/Luneswan/claude-recall)](LICENSE)
 
 Install it once. After that you never type a command: ask Claude a question about
 your own past work, in plain English, and the answer is already in front of it.
 
-**macOS / Linux**
+```bash
+pip install recl && recl install
+```
+
+No pip? One line, any OS:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Luneswan/claude-recall/main/install.py | python3 -
 ```
-
-**Windows (PowerShell)**
-
 ```powershell
 iwr -useb https://raw.githubusercontent.com/Luneswan/claude-recall/main/install.py | python -
 ```
 
-Or clone it and run `python install.py`, which is the same thing with the source
-in front of you first.
+All three run the same installer. Clone it and run `python install.py` if you
+want the source in front of you first.
 
 No account, no API key, no server, nothing leaves your machine. It works
 everywhere Claude Code runs - the terminal, the VS Code and JetBrains extensions,
