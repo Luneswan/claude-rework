@@ -141,7 +141,11 @@ def main():
         dupes = [e for e, script in want.items()
                  if sum(1 for c in c2.get(e, []) if script in c) != 1]
         ok("re-install does not duplicate", not dupes, "duplicated: %s" % dupes)
-        ok("re-install says so", "already registered" in (p2.stdout or ""))
+        # Idempotency itself is proven by the check above. This asserts the
+        # installer also *tells* you it did nothing, rather than reprinting the
+        # first-run output and leaving you unsure whether it changed anything.
+        ok("re-install says so", "already connected" in (p2.stdout or ""),
+           (p2.stdout or "")[-160:])
 
         # the desktop-app path: an MCP server that actually speaks the protocol
         mcp = os.path.join(root, "recall_mcp", "recall_mcp.py")
