@@ -240,13 +240,29 @@ def _build(full, verbose):
     # the copies. Keying on (source, mtime, text) heals an already-duplicated
     # corpus on the next incremental build instead of enshrining it.
     keep, seen = [], set()
-    if not full and os.path.exists(CORPUS):
+    # The scan runs even on --full: a full rebuild re-extracts every LOCAL
+    # transcript, but imported records have no local transcript to re-extract
+    # from, so they must be carried across or the rebuild erases a migration.
+    if os.path.exists(CORPUS):
         try:
             with open(CORPUS, encoding="utf-8", errors="replace") as fh:
                 for line in fh:
                     try:
                         r = json.loads(line)
                     except Exception:
+                        continue
+                    if full and not r.get("im"):
+                        continue
+                    # Imported history has no local source file and never will:
+                    # it came from another machine or account. Judging it by
+                    # os.path.exists() deletes it on the first rebuild, which is
+                    # exactly when someone has just migrated and is checking
+                    # whether their memory survived.
+                    if r.get("im"):
+                        key = (r.get("f", ""), r.get("t"), r.get("m", ""))
+                        if key not in seen:
+                            seen.add(key)
+                            keep.append(line.rstrip(NL))
                         continue
                     src = r.get("f")
                     if not src or src not in manifest or not os.path.exists(src):

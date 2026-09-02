@@ -64,7 +64,8 @@ one two use used using need needs want wants thing things way ways not no yes ok
 # the real gate: it regenerates from the current corpus every run, so it measures
 # retrieval rather than memory of one afternoon.
 FLOORS = {"known_item": 0.95, "curated": 1.0, "stress": 1.0, "smoke": 1.0,
-          "capture": 1.0, "vectors": 1.0, "federation": 1.0, "concurrency": 1.0}
+          "capture": 1.0, "vectors": 1.0, "federation": 1.0, "concurrency": 1.0,
+          "hooks": 1.0}
 
 
 def sh(args, timeout=180):
@@ -761,6 +762,130 @@ def suite_concurrency(verbose=False):
     return rate
 
 
+# ------------------------------------------------------------------ hooks ----
+# The three hooks that make recall automatic, run the way Claude Code runs them:
+# a JSON payload on stdin, output on stdout, exit 0 no matter what. They resolve
+# ~/.claude from their own location, so they are copied into a throwaway root
+# beside a copy of the scripts and a synthetic corpus with a known marker.
+# Skipped where the hooks are not installed (a machine running its own
+# equivalents); exercised on every installed machine and in CI.
+
+def suite_hooks(verbose=False):
+    names = ["recall_auto.py", "recall_session_start.py", "recall_precompact.py"]
+    src_hooks = os.path.join(CLAUDE, "hooks")
+    absent = [n for n in names if not os.path.exists(os.path.join(src_hooks, n))]
+    if absent:
+        print("  hooks: not installed here (%s), skipped" % ", ".join(absent))
+        return None
+    tmp = tempfile.mkdtemp(prefix="hooks-")
+    root = os.path.join(tmp, ".claude")
+    hooks = os.path.join(root, "hooks")
+    scripts = os.path.join(root, "skills", "recall", "scripts")
+    os.makedirs(hooks)
+    os.makedirs(scripts)
+    bad = []
+    total = 13
+    try:
+        for n in names:
+            shutil.copy(os.path.join(src_hooks, n), hooks)
+        src_scripts = os.path.abspath(os.path.join(HERE, "..", "scripts"))
+        for f in os.listdir(src_scripts):
+            if f.endswith(".py"):
+                shutil.copy(os.path.join(src_scripts, f), scripts)
+
+        now = int(time.time())
+        marker = "zebraquokka"
+        rows = []
+        for i in range(40):
+            rows.append({"f": "sim.jsonl", "p": "sim", "t": now - i * 3600, "r": "u",
+                         "m": "how should we handle retries on the upload endpoint "
+                              "round %d with backoff and jitter please" % i})
+            rows.append({"f": "sim.jsonl", "p": "sim", "t": now - i * 3600, "r": "a",
+                         "m": "Decided on exponential backoff capped at thirty seconds "
+                              "round %d because the provider rate-limits per minute." % i})
+        rows.append({"f": "sim.jsonl", "p": "sim", "t": now - 60, "r": "u",
+                     "m": "what did we settle on for the payment webhook timeout"})
+        rows.append({"f": "sim.jsonl", "p": "sim", "t": now - 30, "r": "a",
+                     "m": "We decided the payment webhook timeout is twelve seconds "
+                          "after measuring the provider p99; marker %s." % marker})
+        with open(os.path.join(root, "recall_corpus.jsonl"), "w", encoding="utf-8",
+                  newline="\n") as fh:
+            for r in rows:
+                fh.write(json.dumps(r) + "\n")
+        df = {}
+        for r in rows:
+            for w in set(re.findall(r"[a-z][a-z0-9_-]{2,}", r["m"].lower())):
+                df[w] = df.get(w, 0) + 1
+        json.dump({"n": len(rows), "df": df},
+                  open(os.path.join(root, "recall_corpus.df.json"), "w",
+                       encoding="utf-8"))
+
+        env = dict(os.environ)
+        env.update({"RECALL_HOME": root, "PYTHONIOENCODING": "utf-8",
+                    "HF_HUB_DISABLE_PROGRESS_BARS": "1"})
+
+        def hook(name, stdin):
+            p = subprocess.run([sys.executable, os.path.join(hooks, name)],
+                               input=stdin, capture_output=True, text=True,
+                               encoding="utf-8", errors="replace", timeout=180,
+                               env=env, cwd=root)
+            return p.returncode, (p.stdout or ""), (p.stderr or "")
+
+        def expect(label, cond, detail=""):
+            if not cond:
+                bad.append("%s [%s]" % (label, str(detail)[:110]))
+
+        pay = lambda **k: json.dumps(dict(k))
+
+        rc, out, err = hook("recall_auto.py",
+                            pay(prompt="didn't we already decide the payment webhook "
+                                       "timeout?", cwd=root))
+        expect("auto fires on a past-shaped prompt", rc == 0 and "RECALLED" in out,
+               err[-90:] or out[:90])
+        expect("auto surfaces the answer", marker in out.lower(), out[:110])
+        rc, out, _ = hook("recall_auto.py",
+                          pay(prompt="create a new endpoint for uploads", cwd=root))
+        expect("auto silent on new work", rc == 0 and out.strip() == "", out[:70])
+        rc, out, _ = hook("recall_auto.py", pay(prompt="hi there", cwd=root))
+        expect("auto silent on a short prompt", rc == 0 and out.strip() == "", out[:70])
+        rc, out, _ = hook("recall_auto.py", "garbage{{{")
+        expect("auto survives garbage stdin", rc == 0 and out.strip() == "", out[:70])
+        rc, out, _ = hook("recall_auto.py",
+                          pay(prompt="what did we decide about the upload retries?",
+                              cwd=root))
+        expect("auto debounced on an immediate repeat", rc == 0 and out.strip() == "",
+               out[:70])
+
+        rc, out, err = hook("recall_session_start.py", pay(cwd=root))
+        expect("session start exits 0", rc == 0 and "Traceback" not in err, err[-90:])
+        expect("session start prints a banner or nothing",
+               out.strip() == "" or out.startswith("WHERE YOU LEFT OFF"), out[:70])
+        rc, out, _ = hook("recall_session_start.py", "garbage{{{")
+        expect("session start survives garbage stdin", rc == 0, rc)
+
+        rc, out, err = hook("recall_precompact.py",
+                            pay(cwd=root, trigger="manual",
+                                transcript_path="/x/sess-42.jsonl"))
+        expect("precompact exits 0", rc == 0 and "Traceback" not in err, err[-90:])
+        expect("precompact prints the handoff", "RECALL HANDOFF" in out, out[:70])
+        expect("precompact writes the handoff to disk",
+               os.path.exists(os.path.join(root, "recall_handoffs", "sess-42.md")))
+        rc, out, _ = hook("recall_precompact.py", "garbage{{{")
+        expect("precompact survives garbage stdin", rc == 0, rc)
+    except Exception as exc:
+        bad.append("suite crashed: %r" % (exc,))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    rate = max(0.0, 1 - len(bad) / total)
+    print("  hooks           %3d/%3d  %5.1f%%   %s"
+          % (total - len(bad), total, 100 * rate,
+             ("failed: " + "; ".join(bad[:2])) if bad else ""))
+    if verbose:
+        for b in bad:
+            print("      %s" % b)
+    return rate
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--known", type=int, default=200)
@@ -781,6 +906,7 @@ def main():
     results["vectors"] = suite_vectors(a.verbose)
     results["federation"] = suite_federation(a.verbose)
     results["concurrency"] = suite_concurrency(a.verbose)
+    results["hooks"] = suite_hooks(a.verbose)
 
     print()
     failed = []

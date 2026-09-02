@@ -1,21 +1,108 @@
+<div align="center">
+
 # claude-rework
 
-**Local, automatic memory for Claude Code.** Claude forgets everything between
-sessions; this makes it remember, without burning your context window.
+**Claude forgets everything between sessions. This makes it remember - without burning your context window.**
 
-[![PyPI](https://img.shields.io/pypi/v/claude-rework?label=pypi)](https://pypi.org/project/claude-rework/)
+[![PyPI](https://img.shields.io/pypi/v/claude-rework?color=f4b23e&label=pypi)](https://pypi.org/project/claude-rework/)
+[![Downloads](https://img.shields.io/pypi/dm/claude-rework?color=5ddb9a&label=installs%2Fmonth)](https://pypi.org/project/claude-rework/)
+[![Stars](https://img.shields.io/github/stars/Luneswan/claude-rework?style=flat&color=f4b23e)](https://github.com/Luneswan/claude-rework/stargazers)
 [![CI](https://github.com/Luneswan/claude-rework/actions/workflows/ci.yml/badge.svg)](https://github.com/Luneswan/claude-rework/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/pypi/pyversions/claude-rework)](https://pypi.org/project/claude-rework/)
-[![License: MIT](https://img.shields.io/github/license/Luneswan/claude-rework)](LICENSE)
-
-Install it once. After that you never type a command: ask Claude a question about
-your own past work, in plain English, and the answer is already in front of it.
+[![License](https://img.shields.io/github/license/Luneswan/claude-rework?color=blue)](LICENSE)
 
 ```bash
 pip install claude-rework && claude-rework install
 ```
 
-No pip? One line, any OS:
+</div>
+
+---
+
+## 💸 See how much you save
+
+Every number here is **measured on a real 7.4 GB installation**, not estimated
+from industry averages. One question about your own past work:
+
+| Answering *"what did we decide about X?"* | Input tokens | Right answer? |
+|---|---:|:-:|
+| Paste the session into context | 26,539,949 | yes - and impossible, it's a 101 MB transcript |
+| `grep` your notes and transcripts | 211,627 | yes - and unaffordable |
+| **claude-rework** | **2,552** | **yes** |
+| | **↓ 209,075 saved** | |
+
+Resuming a session costs the same way: re-reading the conversation to find where
+you left off runs 30,000–80,000 tokens. `--brief` rebuilds the same picture from
+the index for **~600**. Call it **49,400 saved** per resume.
+
+### One developer, one month
+
+<sub>22 working days. Pick the row that looks like your week - then multiply by your team.</sub>
+
+| Your usage | Per day | Tokens never sent | Opus 5 | Sonnet 5 | Haiku 4.5 |
+|---|---|---:|---:|---:|---:|
+| Light | 2 lookups, 1 resume | 10.3M | **$51** | $21 | $10 |
+| **Typical** | 6 lookups, 2 resumes | **29.8M** | **$149** | $60 | $30 |
+| Heavy | 15 lookups, 4 resumes | 73.3M | **$367** | $147 | $73 |
+
+Ten typical developers is the same row × 10 - **297.7M tokens and $1,489 a month**,
+$17,863 a year.
+
+<details>
+<summary><b>On a Pro or Max subscription instead of the API?</b></summary>
+
+<br>
+
+You aren't billed per token, so the saving isn't an invoice line - it's **headroom**.
+Those 29.8M tokens a month are context you no longer spend re-deriving things you
+already knew, which is work you get done before hitting a limit.
+
+How many extra messages that buys is not something anyone outside Anthropic can
+compute. Rate limits move with demand and the formula isn't published. So this
+README won't hand you a "3× more coding hours" figure - anyone who does made it up.
+
+What's true and checkable: **the token reduction above is measured**, and the
+dollar column is that reduction times Anthropic's published input price.
+
+</details>
+
+<details>
+<summary><b>Show me the arithmetic</b></summary>
+
+<br>
+
+```
+per lookup saved  = 211,627 (grep)      -  2,552 (indexed)  = 209,075 tokens
+per resume saved  =  50,000 (re-read)   -    600 (--brief)  =  49,400 tokens
+
+typical developer = (6 × 22 × 209,075) + (2 × 22 × 49,400)
+                  =     27,597,900      +      2,173,600
+                  =     29,771,500 tokens / month
+
+at Opus 5 input   = 29.77 M × $5.00 / M = $148.86 / developer / month
+```
+
+Prices are Anthropic list: Opus 5 `$5.00`, Sonnet 5 `$2.00`, Haiku 4.5 `$1.00`
+per million input tokens. The search itself runs on your CPU and costs nothing.
+
+</details>
+
+---
+
+## Install
+
+**One line. Any OS. It finds everything itself.**
+
+```bash
+pip install claude-rework && claude-rework install
+```
+
+<details>
+<summary><b>No pip? No terminal? Other ways in →</b></summary>
+
+<br>
+
+**One line, without pip:**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Luneswan/claude-rework/main/install.py | python3 -
@@ -24,314 +111,294 @@ curl -fsSL https://raw.githubusercontent.com/Luneswan/claude-rework/main/install
 iwr -useb https://raw.githubusercontent.com/Luneswan/claude-rework/main/install.py | python -
 ```
 
-All three run the same installer. Clone it and run `python install.py` if you
-want the source in front of you first.
+**No terminal at all** - [download the zip](https://github.com/Luneswan/claude-rework/archive/refs/heads/main.zip), unzip it, then:
 
-No account, no API key, no server, nothing leaves your machine. It works
-everywhere Claude Code runs - the terminal, the VS Code and JetBrains extensions,
-and the desktop app - because it installs into `~/.claude`, which all of them
-read.
+| Your machine | Do this |
+|---|---|
+| **macOS** | Double-click `install.command` |
+| **Windows** | Right-click `install.ps1` → *Run with PowerShell* - it installs Python for you if you don't have it |
+| **Linux** | `bash install.sh` |
+
+All five routes run the same installer.
+
+</details>
+
+It detects your OS, finds every Claude surface you have, connects each one the
+only way it can be reached, installs the semantic-search extras, and **builds
+your index immediately** - no session, no first message, no waiting.
+
+```
+claude-rework 1.3.0 - install
+  system   Darwin 24.3.0 (arm64), Python 3.12.7
+  claude_code      found, not connected
+  claude_desktop   found, not connected
+  index    not built, 1,421 transcript file(s)
+
+  installed skill    ~/.claude/skills/recall
+  installed hooks    ~/.claude/hooks (4 scripts)
+  claude code        connected via hooks:
+      + SessionStart      start each session knowing what is still open
+      + UserPromptSubmit  answer 'did we already do this?' before Claude guesses
+      + PostToolUse       record what was actually edited and run
+      + PreCompact        save decisions before compaction drops them
+  desktop app        connected via mcp - restart the app to load it
+  ranking            lexical + semantic
+  index              corpus now 7.7 MB (13,074 messages)
+  vectors            13,074 vectors, dim 512, 25.5 MB, in 6s
+
+  Done. Nothing else to configure.
+```
+
+**You never type a recall command again.** Ask Claude in plain English.
 
 ---
 
-## What actually happens after you install
-
-Your transcripts are already on disk. Every decision, every bug you chased for two
-hours, every "we tried that, it didn't work" sits in `~/.claude/projects/` in
-files nobody reads. claude-rework indexes them, installs a Claude Code skill named
-`recall`, and wires four hooks so the index is used on its own.
-
-| when | what runs | what you get |
-|---|---|---|
-| you open a session | `SessionStart` | the threads still open from the last few days |
-| you send a message | `UserPromptSubmit` | **only if you asked about the past**, the answer is looked up and handed to Claude |
-| Claude edits or runs something | `PostToolUse` | a one-line record of the actual work |
-| context fills and compaction fires | `PreCompact` | the decisions are saved to disk first, so the summary cannot lose them |
-
-The second one is the point. You type:
+## What it feels like
 
 > **you:** didn't we already fix the webhook timeout?
 
-and before Claude sees your message, claude-rework has searched 19,000 messages of your
-own history locally and prepended the answer. Claude replies from what you
-actually decided instead of guessing.
+Before Claude sees that message, claude-rework searched 13,000 messages of your
+own history locally and put the answer in front of it:
 
-It only fires on prompts *shaped* like questions about the past. "Add a button"
-triggers nothing, because injecting history into new work is exactly the waste
-this tool exists to prevent. Output is capped at ~1,200 characters and debounced.
+> **Claude:** From your history on Feb 14 - you set it to **12 seconds** after
+> measuring the provider's p99 at 9.4s.
 
-**Nothing to remember, nothing to type.** The commands further down still exist
-if you want them, but the tool is designed so you never need one.
+About 400 tokens, 0.7 seconds, answered from what you *actually decided*.
 
----
-
-## The one thing worth understanding
-
-There are two ways a tool can give Claude memory, and they cost very differently.
-
-- **An MCP server** publishes tool schemas that load into your context **before
-  you type a word**, every session, whether you use them or not.
-- **A hook** costs nothing until it fires, and this one fires only on the prompts
-  that need it.
-
-claude-rework uses hooks for Claude Code. That is the whole design argument: a memory
-tool that permanently enlarges your context is charging you rent to save you
-money. (The desktop app cannot run hooks, so for that there is an MCP server;
-see below.)
+**"Add a button" triggers nothing.** History is only fetched when you ask about
+the past - injecting it into new work is exactly the waste this exists to prevent.
 
 ---
 
-## Using the Claude desktop app or Cowork
+## Every Claude surface, connected automatically
 
-The desktop app cannot run hooks, so claude-rework ships an MCP server. `install.py`
-prints the exact config at the end, or:
+| Surface | How it connects | Auto-detected |
+|---|---|:-:|
+| **Claude Code** (terminal) | 4 hooks | ✅ |
+| **VS Code extension** | same hooks - it drives the same CLI | ✅ |
+| **JetBrains extension** | same hooks | ✅ |
+| **Claude Desktop app** | MCP server - desktop can't run hooks | ✅ |
+| **Claude Cowork** | same MCP server | ✅ |
 
-```bash
-python install.py --mcp-config
-```
+Where a surface *can't* take hooks, it falls back to MCP rather than documenting
+the limitation and leaving you to solve it.
 
-Paste it into `claude_desktop_config.json` and restart the app:
+**The design argument in one line:** an MCP server's tool schemas load into your
+context *before you type a word*, every session. A hook costs nothing until it
+fires.
 
-- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
-
-```json
-{
-  "mcpServers": {
-    "claude-rework": {
-      "command": "/path/to/python",
-      "args": ["/Users/you/.claude/recall_mcp/recall_mcp.py"]
-    }
-  }
-}
-```
-
-Claude then calls these itself when you ask about the past: `recall_search`,
-`recall_brief`, `recall_decisions`, `recall_timeline`, `recall_write`. Five tools,
-kept terse on purpose, because their schemas are the context cost described above.
-
-The server has no dependencies. MCP over stdio is newline-delimited JSON-RPC,
-which is a page of standard library, and a memory tool that makes you
-`pip install` a framework before it starts is a tool people abandon during setup.
+| | Hooks (Claude Code) | MCP (desktop app) |
+|---|:-:|:-:|
+| Context cost while idle | **zero** | tool schemas, every session |
+| Fires on | only past-shaped prompts | whenever Claude decides |
+| Records what you *did* | ✅ | ✗ |
+| Survives compaction | ✅ writes to disk first | ✗ |
 
 ---
 
-## What it saves you, honestly
+## What runs, and when
 
-This is the question people actually have, so here is what is measured and what
-is not.
-
-**Measured on this machine:** answering one question about past work.
-
-| approach | tokens | correct |
-|---|---:|---|
-| paste the session into context | 26,539,949 | yes, and impossible: it is a 101 MB transcript |
-| `grep` your notes and transcripts | 211,627 | yes, and unaffordable |
-| **claude-rework** | **2,552** | yes |
-
-Roughly **209,000 input tokens saved per history question.** The search itself
-runs on your CPU and costs nothing.
-
-**A worked estimate, assumption stated:** if you ask five "what did we decide" or
-"did we already try" questions in a working day, and would otherwise answer them
-by pasting files and grepping, that is on the order of **1M input tokens a day**
-you no longer send. Change the five and the number moves with it.
-
-**What I will not tell you:** how many extra messages that buys on Pro or Max.
-Anthropic does not publish the formula, limits move with demand, and anyone
-handing you "3-5x more coding hours" made it up. The token reduction above is
-real and checkable. The effect on your specific limit is real but not something
-anyone outside Anthropic can honestly put a multiplier on.
-
-The second saving is less visible and probably bigger: **not re-reading the
-session.** `--brief` reconstructs where you left off for about 600 tokens.
-Scrolling the conversation back into context to get the same picture costs
-30,000 to 80,000, and the `SessionStart` hook does the cheap version for you at
-the start of every session.
-
----
-
-## Speed and accuracy
-
-Measured on 1,421 transcript files, 7.4 GB, 19,426 indexed messages.
-
-| operation | time |
-|---|---|
-| a query | **0.63-0.75s** |
-| first index build (7.4 GB) | 33s |
-| incremental refresh | under a second |
-| embedding 19,426 chunks | 4s |
-| encoding one query | 0.109s |
-
-Before the index existed a single query took **158 seconds**, and a six-question
-benchmark timed out at ten minutes. Extracting once and searching that is the
-whole trick.
-
-Eight suites, each with a floor; the run fails if any drops below it.
-
-| suite | result | what it proves |
+| When | What happens | Cost |
 |---|---|---|
-| known-item | **300/300 (100%)** | retrieval on questions generated *from your corpus* |
-| curated | **12/12** | hand-written cases, zero silent fallbacks |
-| stress | **19/19** | empty input, CJK, RTL, shell metacharacters, a 3,000-character word |
-| subcommands | **11/11** | every command runs clean |
-| capture | **33/33** | the hook records work, drops noise, redacts secrets |
-| vectors | **6/6** | a stale or misaligned index is refused, never guessed at |
-| federation | **28/28** | hostile input rejected without crashing |
-| concurrency | **5/5** | three builds at once produce zero duplicates and leave no lock behind |
-| foreign machines | **4/4 at 100%** | tiny, huge, non-English and sparse corpora |
-| optimizer | **100/100 clean** | no file lost, no action below the evidence threshold |
+| You open a session | Prints the threads still open from the last few days | ~600 tokens, once |
+| You ask about the past | Looks it up locally, hands the answer to Claude | ~300 tokens, only those prompts |
+| Claude edits or runs something | Logs one line of what actually happened | a file append |
+| Compaction starts | Writes the decisions to disk **first** | ~600 tokens |
 
-The concurrency suite exists because the automatic mode created the bug it
-catches. A hook that rebuilds the index on every session start means two open
-Claude windows start two builds, and without a lock every record both touched
-landed twice: on the machine this was built on, one burst of session starts left
-the index **56% duplicates**, with one record present 122 times, and two known
-answers crowded out of the output. Now a second builder exits immediately, and an
-already-duplicated index heals itself on the next pass.
+---
+
+## 🧳 Switching accounts or machines
+
+New Claude account? New laptop? Your history stays behind and Claude forgets you.
 
 ```bash
-python ~/.claude/skills/recall/tests/run_tests.py
+claude-rework export memory.zip     # old account
+
+pip install claude-rework && claude-rework install
+claude-rework import memory.zip     # new account, new machine, any OS
 ```
 
-**The known-item suite is generated from your data, not written by hand.** It
-samples a chunk, builds a question from that chunk's own words, holds back the
-most distinctive word so nothing passes by exact match, and demands the chunk
-back. Twelve cases I wrote by hand scored 100% while sixty generated ones scored
-76.7%. The gap was me overfitting to my own imagination, and I only saw it
-because the generated set existed.
+Everything comes with you, automatically:
+
+| Carried across | What that means |
+|---|---|
+| **Your whole search index** | every message and conclusion already extracted |
+| **Every project** | slug, real path on disk, how much history each has |
+| **Project context** | each project's `CLAUDE.md`, `AGENTS.md`, memory notes |
+| **The activity log** | what was actually edited and run |
+| **Who you are** | a `who-i-am` profile, so the new account knows you on day one |
+| Raw transcripts | only with `--with-transcripts` - large, exact |
+
+**Never carried:** `settings.json`, hooks, credentials, API keys, OAuth tokens.
+It's your *content*, not your configuration - so a bundle can't leak a secret it
+never contained.
+
+Import is a **merge, never a replace**. Import the same bundle twice and nothing
+changes. Import a colleague's and it adds to yours. A note you already wrote is
+never overwritten.
+
+```bash
+claude-rework inspect memory.zip   # look before you import
+claude-rework profile              # what Claude knows about you
+```
 
 ---
 
 ## How it compares
 
-### Other memory and token skills
+### Against other memory & token skills
 
-Every one of these was installed on the machine claude-rework was built on. The counts
-come from the filesystem.
+Every one of these was installed on the machine this was built on. Counts come
+from the filesystem, not from memory.
 
-| skill | files | executable code | tests | searches your transcripts | runs on its own |
-|---|---:|---:|---:|---|---|
-| `context-budget` | 1 | 0 | 0 | no | no |
-| `token-budget-advisor` | 1 | 0 | 0 | no | no |
-| `rescue-tokens` | 2 | 0 | 0 | no | no |
-| `token-optimization` | 8 | 1 | 2 | no | no |
-| `long-context-lost-in-the-middle` | 1 | 0 | 0 | no | no |
-| `mem-search` | 1 | 0 | 0 | no | no |
-| `smart-explore` | 1 | 0 | 0 | no | no |
-| `timeline-report` | 1 | 0 | 0 | no | no |
-| `mempalace` | 1 | 0 | 0 | no | no |
-| `claude-mem` (plugin) | n/a | 7 | 0 | yes, via MCP | yes, via MCP |
-| **claude-rework** | **20** | **15** | **7 suites, 400+ cases** | **yes** | **yes, via hooks** |
+| | Files | Code | Tests | Searches your history | Runs itself | Offline |
+|---|---:|---:|---:|:-:|:-:|:-:|
+| `context-budget` | 1 | 0 | 0 | ✗ | ✗ | n/a |
+| `token-budget-advisor` | 1 | 0 | 0 | ✗ | ✗ | n/a |
+| `rescue-tokens` | 2 | 0 | 0 | ✗ | ✗ | n/a |
+| `token-optimization` | 8 | 1 | 2 | ✗ | ✗ | n/a |
+| `long-context-lost-in-the-middle` | 1 | 0 | 0 | ✗ | ✗ | n/a |
+| `mem-search` | 1 | 0 | 0 | ✗ | ✗ | n/a |
+| `smart-explore` | 1 | 0 | 0 | ✗ | ✗ | n/a |
+| `timeline-report` | 1 | 0 | 0 | ✗ | ✗ | n/a |
+| `mempalace` | 1 | 0 | 0 | ✗ | ✗ | n/a |
+| `claude-mem` (plugin) | - | 7 | 0 | ✅ via MCP | ✅ via MCP | ✗ |
+| **claude-rework** | **34** | **17** | **9 suites, 400+ cases** | **✅** | **✅ hooks + MCP** | **✅** |
 
-Most of that list is advice: well-written documents telling Claude to be careful
-with context. A document cannot search 7 GB of transcripts or tell you whether it
-worked. `claude-mem` is the one genuinely comparable project, and it takes the
-MCP bet described above.
+Most of that list is *advice* - well-written documents telling Claude to be
+careful with context. A document cannot search 7 GB of transcripts or tell you
+whether it worked. `claude-mem` is the one genuinely comparable project, and it
+takes the MCP-only bet.
 
-**This is not a claim those skills are bad.** Several taught me things, and claude-rework
-absorbs what each did well: `--budget-report` is what `context-budget` did,
-`--estimate` is `token-budget-advisor`, `--timeline` is `timeline-report`. The
-argument is narrower. One tested program beats nine overlapping documents, because
-loading several memory skills at once is precisely the waste each warns about.
+**This is not a claim those skills are bad.** Several taught me things, and
+claude-rework absorbs what each did well: `--budget-report` is what
+`context-budget` did, `--estimate` is `token-budget-advisor`, `--timeline` is
+`timeline-report`. The argument is narrower - one tested program beats nine
+overlapping documents, because loading several memory skills at once is precisely
+the waste each of them warns about.
 
-### The obvious alternatives
+### Against the obvious alternatives
 
-| | grep | a RAG service | `/compact` | claude-rework |
-|---|---|---|---|---|
-| finds a decision from 3 months ago | yes, unaffordably | yes | no, it is gone | yes |
-| cost per answer | ~211k tokens | API calls | free but lossy | ~2.5k tokens |
-| your data leaves the machine | no | **yes** | no | no |
-| needs a key or an account | no | yes | no | no |
-| runs without you asking | no | no | n/a | **yes** |
-| tells you when it is wrong | no | rarely | n/a | yes, refuses stale indexes |
-| works on a plane | yes | no | yes | yes |
+| | grep | RAG service | `/compact` | CLAUDE.md | **claude-rework** |
+|---|---|---|---|---|---|
+| Finds a decision from 3 months ago | yes, unaffordably | yes | no, it's gone | only what you typed | **yes** |
+| Cost per answer | ~211k tokens | API calls | free but lossy | in context always | **~2.5k tokens** |
+| Your data leaves the machine | no | **yes** | no | no | **no** |
+| Needs a key or account | no | yes | no | no | **no** |
+| Runs without you asking | no | no | n/a | n/a | **yes** |
+| Survives an account switch | n/a | yes | no | manual copy | **yes, one command** |
+| Tells you when it's wrong | no | rarely | n/a | n/a | **yes, refuses stale indexes** |
+| Works on a plane | yes | no | yes | yes | **yes** |
 
 ---
 
 ## Why it works
 
-Four ideas, each measured before it was kept.
+Four ideas. Each measured before it was kept.
 
 **1. Extract once, search forever.** Raw transcripts are 7.4 GB of JSON, mostly
-tool output. The part that answers a question is what people typed, plus the
-minority of Claude's replies stating a conclusion. Pulled out once, that is
-11.7 MB. Same answers, 158s down to 0.33s.
+tool output. What answers a question is what people typed, plus the minority of
+Claude's replies that state a conclusion. Pulled out once: 7.7 MB. Same answers,
+158s → 0.33s.
 
-**2. Rank across stores, not one at a time.** claude-rework searches your notes, your
-skills, an optional code graph and your transcripts in one pass and ranks them
-together. Searching notes first and stopping sounds principled and scored worse,
-because a weak note from an unrelated project displaces the line holding the
-answer. Store priority is a weight, not an order.
+**2. Rank across stores, not one at a time.** Notes, skills, an optional code
+graph and your transcripts are searched in one pass and ranked together.
+Searching notes first and stopping *sounds* principled and scored worse - a weak
+note from an unrelated project displaces the line holding the answer. Store
+priority is a weight, not an order.
 
 **3. Score density, not word count.** A 6,000-character note matching two filler
 words used to beat the 600-character chunk holding the answer. Dividing by the
-square root of length and capping per-term counts took accuracy from 42% to 75%
-by itself.
+square root of length took accuracy from 42% → 75% on its own.
 
-**4. Semantic search that admits, but does not decide.** "Why was the router
-broken" is answered by "bash ate the backslashes in the interpreter path", which
-shares no words with the question. Static embeddings close that gap for a one-time
-36 MB download, no GPU and no API. They let a chunk into the running without a
+**4. Semantic search that admits, but doesn't decide.** *"Why was the router
+broken"* is answered by *"bash ate the backslashes in the interpreter path"* -
+which shares no words with the question. Static embeddings close that gap for a
+one-time 36 MB download, no GPU, no API. A chunk can enter the running without a
 shared word, but it still has to win on the combined score.
 
 ---
 
-## Commands, if you want them
+## Proof
 
-You should not need these. They exist because sometimes you do.
+Nine suites, each with a floor. The run fails if any drops below it.
+
+| Suite | Result | What it proves |
+|---|---|---|
+| known-item | **300/300** | retrieval on questions generated *from your corpus*, gold term held out |
+| curated | **12/12** | hand-written cases, zero silent fallbacks |
+| stress | **19/19** | empty input, CJK, RTL, shell metacharacters, a 3,000-char word |
+| subcommands | **11/11** | every command runs clean |
+| capture | **33/33** | the hook records work, drops noise, redacts secrets |
+| vectors | **6/6** | a stale or misaligned index is refused, never guessed at |
+| federation | **28/28** | hostile input rejected without crashing |
+| concurrency | **5/5** | three builds at once → zero duplicates, no lock left behind |
+| hooks | **13/13** | all four hooks under Claude Code's real calling convention |
+| foreign machines | **4/4 at 100%** | tiny, huge, non-English and sparse corpora |
+| optimizer | **100/100** | no file lost, no action below the evidence threshold |
 
 ```bash
-R=~/.claude/skills/recall/scripts/recall.py
-
-python $R "<question>"                 # search everything, ranked and bounded
-python $R "<question>" --this-project  # only this project's history
-python $R "<question>" --all-projects  # every project (the default), skip the code graph
-
-python $R --brief --days 2             # asked / done / still open
-python $R --handoff                    # what must survive a compact
-python $R --decisions --days 30        # a decision ledger
-python $R --digest --weeks 4           # per-week rollup
-python $R --timeline --days 7          # by day, across projects
-
-python $R --write "<fact>" --name <slug> --type project|user|feedback|reference
-
-python $R --budget-report              # what a session costs before you type
-python $R --estimate "@file.md"        # input tokens and likely response size
-python $R --gc                         # stale and duplicate notes (never deletes)
-python $R --optimize [--apply]         # promote/demote skills from measured usage
+claude-rework test
 ```
 
-`--budget-report` found four image-generation skills on my machine costing ~950
-tokens *every session* for something I used monthly. Moving them to a library tier
-cut the fixed cost of a session by 27%, and they stayed one search away.
+**CI runs a clean-room install on Ubuntu, Windows and macOS × Python 3.10 and
+3.12 on every push** - a machine that has never seen this, synthetic transcripts,
+the optional binary stripped from `PATH`, install → use → uninstall.
+
+**The known-item suite is generated from your own data, not written by hand.** It
+samples a chunk, builds a question from that chunk's own words, holds back the
+most distinctive word so nothing passes by exact match, and demands the chunk
+back. Twelve cases I wrote by hand scored 100% while sixty generated ones scored
+76.7%. The gap was me overfitting to my own imagination - and I only saw it
+because the generated set existed.
 
 ---
 
-## Capture: what you did, not just what you said
+## Keeping it working
 
-Transcripts record the conversation, not the work. Ask "what did we change in the
-router" and a transcript-only memory hands you the *description* of a change.
-
-```json
-{"t": 1788259894, "k": "edit", "p": "webapp", "d": "src/net/fetcher.py"}
-{"t": 1788259894, "k": "run",  "p": "webapp", "d": "pytest tests/ -q [redacted]"}
+```bash
+claude-rework status     # what's connected, what's indexed
+claude-rework doctor     # check every connection; say what's wrong
+claude-rework repair     # fix what doctor found
+claude-rework update     # newest version, reconnected
+claude-rework uninstall  # remove everything; keep your memory
 ```
 
-A file append. No parsing, no model, no network. Read-only noise like `ls` and
-`cat` is dropped, the log is capped, and commands are scrubbed before writing.
+`doctor` catches the failures that are otherwise silent: a hook pointing at a
+Python that no longer exists, a backslash in a hook path (bash eats them - that
+one cost hours), an MCP entry orphaned by a moved interpreter, an index that was
+never built. `repair` fixes all of them.
 
-That scrubber had a real bug, found by the test suite here.
-`Authorization:\s*\S+` eats one token after the colon, and in
-`Authorization: Bearer <token>` that token is the word "Bearer", so the credential
-went to disk in the clear. It now takes the scheme *and* the value, with a test
-per credential shape.
+<details>
+<summary><b>Commands, if you want them</b> - you shouldn't need these</summary>
+
+<br>
+
+```bash
+claude-rework "<question>"           # ask your history
+claude-rework "<q>" --this-project   # only this project
+claude-rework --brief --days 2       # asked / done / still open
+claude-rework --handoff              # what must survive a compact
+claude-rework --decisions --days 30  # a decision ledger
+claude-rework --timeline --days 7    # by day, across projects
+claude-rework --write "<fact>" --name <slug> --type project|user|feedback|reference
+claude-rework --budget-report        # what a session costs before you type
+claude-rework --estimate "@file.md"  # input tokens and likely response size
+claude-rework --gc                   # stale/duplicate notes (never deletes)
+claude-rework --optimize [--apply]   # promote/demote skills from measured usage
+```
+
+`--budget-report` found four image-generation skills on my machine costing ~950
+tokens *every session* for something used monthly. Moving them to a library tier
+cut fixed session cost by 27%, and they stayed one search away.
+
+</details>
 
 ---
 
 ## Privacy
 
-Nothing leaves your machine. No telemetry, no account.
+Nothing leaves your machine. No telemetry, no account, no server.
 
 The only networked feature is opt-in parameter sharing, and it sends about twenty
 integers:
@@ -340,68 +407,81 @@ integers:
 {"schema": 1, "machine": "9f2c4a1b77de",
  "params": {"sem_weight": 12, "first_div": 2, "taper": 6},
  "scores": {"known_item": 0.99, "curated": 1.0},
- "corpus": {"chunks": 19426, "vocab": 84210}}
+ "corpus": {"chunks": 13074, "vocab": 84210}}
 ```
 
-No prompts, answers, paths, project names or note text. The machine id is a random
-local salt, not a hostname.
+No prompts, answers, paths, project names or note text. The machine id is a
+random local salt, not a hostname.
 
 - **`--export` writes a file and stops.** Nothing uploads on a schedule.
 - **A pulled card is untrusted input.** Every field is range-checked, the whole
-  card is rejected on any bad field, and a hostile card cannot crash the import.
-- **Only integers are adopted.** It cannot fetch or run code. Code travels as a
-  pull request a human reads, because auto-executing code pulled from strangers is
-  a supply-chain compromise wearing a helpful hat.
+  card is rejected on any bad field, and a hostile card can't crash the import.
+- **Only integers are adopted.** It cannot fetch or run code. Code travels the
+  ordinary way - a pull request a human reads - because auto-executing code
+  pulled from strangers is a supply-chain compromise wearing a helpful hat.
+
+**Secrets never reach the activity log.** Commands are scrubbed before writing.
+That scrubber had a real bug, found by the test suite here:
+`Authorization:\s*\S+` eats one token after the colon, and in
+`Authorization: Bearer <token>` that token is the word *"Bearer"* - so the
+credential went to disk in the clear. It now takes the scheme *and* the value,
+with a test per credential shape.
 
 ---
 
 ## Requirements
 
-- **Python 3.9+ and Claude Code.** That is the hard requirement.
-- **`numpy` and `model2vec` are optional** and buy semantic ranking. Without them
-  claude-rework falls back to lexical scoring and still works.
-  `pip install numpy model2vec`
-- **graphify is not required.** If a project happens to have a code graph, claude-rework
-  uses it as one more store; if not, that store is skipped. Tested, not asserted:
+- **Python 3.9+ and Claude.** That's the hard requirement.
+- **`numpy` + `model2vec`** install automatically for semantic ranking. If that
+  can't happen (offline, locked-down machine), it falls back to lexical scoring
+  and still works - the install never fails over an optional extra.
+- **graphify is not required.** If a project happens to have a code graph, it's
+  used as one more store; if not, that store is skipped. *Tested, not asserted:*
   the suite runs with graphify absent from `PATH`, then again with a graph
   directory present but no binary, and both must come back clean.
-- Windows, macOS and Linux. Built and tested on Windows, which is the fussiest
-  about hook paths.
-
----
-
-## Turning it off
-
-```bash
-python install.py --no-hooks    # install, but nothing runs automatically
-python install.py --uninstall   # remove the skill, hooks and MCP server
-```
-
-Uninstall restores `settings.json`, leaves your index and notes alone, and prints
-exactly what it left behind. `settings.json` is backed up before it is ever
-touched, existing hooks are untouched, and installing twice changes nothing.
+- Windows, macOS, Linux - all three in CI.
 
 ---
 
 ## Honest limitations
 
-- **Only as good as your transcripts.** A fresh Claude Code install has nothing to
-  remember, and claude-rework says so rather than inventing something.
-- **`--brief` is a heuristic.** It decides a request is "done" by checking whether
-  a later message reads like a conclusion about the same thing. Usually right, and
-  it says out loud that it is guessing.
-- **The auto-recall hook fires on phrasing, not understanding.** Ask about the past
-  in an unusual way and it stays silent; the tool is still one question away.
+- **Only as good as your transcripts.** A fresh Claude install has nothing to
+  remember, and it says so rather than inventing something.
+- **`--brief` is a heuristic.** It decides a request is "done" by checking
+  whether a later message reads like a conclusion about the same thing. Usually
+  right, and it says out loud that it's guessing.
+- **The auto-recall hook fires on phrasing, not understanding.** Ask about the
+  past in an unusual way and it stays silent; the tool is still one question away.
 - **Parameter sharing has never met a second real machine.** The validator is
   tested against 28 hostile cards. Two installs converging is unproven.
-- **Every threshold was fitted on one person's corpus.** That is why `simulate.py`
+- **Every threshold was fitted on one person's corpus.** That's why `simulate.py`
   builds synthetic machines with alien vocabularies. It found a real bug on its
   first honest run: an IDF floor of `0.3` let a word appearing in *every* record
-  still score, invisible on a diverse corpus and ruinous on a small one. Four
-  synthetic machines went from 44/64/88/92% to 100%.
+  still score - invisible on a diverse corpus, ruinous on a small one. Four
+  synthetic machines went from 44/64/88/92% → 100%.
 
 ---
 
-## License
+## Contributing
 
-MIT. See [LICENSE](LICENSE).
+Issues and PRs welcome. The bar is simple: **a change that can't hold the test
+floors is the thing that's wrong.** Floors only ratchet up.
+
+```bash
+git clone https://github.com/Luneswan/claude-rework && cd claude-rework
+python tests/clean_room_test.py     # the real test: install into a fresh machine
+```
+
+[CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md) · [CHANGELOG.md](CHANGELOG.md)
+
+---
+
+<div align="center">
+
+**If this saved you tokens, [⭐ star it](https://github.com/Luneswan/claude-rework) - it's the only signal that tells me whether to keep building.**
+
+[![Star History Chart](https://api.star-history.com/svg?repos=Luneswan/claude-rework&type=Date)](https://star-history.com/#Luneswan/claude-rework&Date)
+
+MIT · Built because Claude kept asking me things I'd already answered.
+
+</div>
