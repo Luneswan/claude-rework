@@ -330,9 +330,14 @@ def _idf(term):
     return max(0.02, min(3.5, math.log(_DF["n"] / d) / math.log(20)))
 
 
-def search_corpus(terms, days, limit=6, sem=None, sem_weight=None):
+def search_corpus(terms, days, limit=6, sem=None, sem_weight=None, project=None):
     """Same contract as the old live scan, against the extract - but each term is
-    weighted by how rare it is, so a distinctive word carries the match."""
+    weighted by how rare it is, so a distinctive word carries the match.
+
+    `project` restricts hits to one project name (the basename a record was
+    tagged with). Left None, every project is searched, which is the useful
+    default: the answer is often in the repo you were in last week, not this one.
+    """
     if not os.path.exists(CORPUS):
         return []
     weights = {t: _idf(t) for t in terms}
@@ -366,6 +371,8 @@ def search_corpus(terms, days, limit=6, sem=None, sem_weight=None):
                 except Exception:
                     continue
                 if r.get("t", 0) < cutoff:
+                    continue
+                if project and r.get("p", "") != project:
                     continue
                 m = r.get("m", "")
                 ml = m.lower()

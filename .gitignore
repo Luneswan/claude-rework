@@ -28,3 +28,6 @@ venv/
 Thumbs.db
 .idea/
 .vscode/
+recall_handoffs/
+.recall_auto.stamp
+recall_mcp/

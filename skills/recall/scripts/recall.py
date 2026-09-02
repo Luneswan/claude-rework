@@ -187,9 +187,14 @@ def search_graph(project, question):
     return []
 
 
-def search_transcripts(tset, days, limit=6, question=""):
+def search_transcripts(tset, days, limit=6, question="", project=None):
     """Search the extracted corpus, not 7 GB of raw transcripts. Falls back to a
-    hard-capped live scan only while the corpus is still being built."""
+    hard-capped live scan only while the corpus is still being built.
+
+    `project` is a project NAME, not a path, and is normally None: history is
+    searched across every project because that is where the answer usually is.
+    --this-project narrows it when a word means different things in two repos.
+    """
     try:
         from recall_index import search_corpus, CORPUS
         if os.path.exists(CORPUS):
@@ -200,7 +205,7 @@ def search_transcripts(tset, days, limit=6, question=""):
                     sem = semantic_scores(question)
                 except Exception:
                     sem = {}
-            return search_corpus(tset, days, limit, sem=sem)
+            return search_corpus(tset, days, limit, sem=sem, project=project)
     except Exception as exc:
         print("  (corpus unavailable: %r - falling back to a capped live scan)" % exc,
               file=sys.stderr)
@@ -297,6 +302,14 @@ def main():
     ap.add_argument("question", nargs="?")
     ap.add_argument("--budget", type=int, default=2000)
     ap.add_argument("--project", default=os.getcwd())
+    # Transcript search spans every project by default, because the decision you
+    # are looking for is often in the repo you were in last week. These make that
+    # explicit and give you the narrow case when a word means two things.
+    ap.add_argument("--all-projects", action="store_true",
+                    help="search every project and ignore this directory's code "
+                         "graph (transcripts are already global by default)")
+    ap.add_argument("--this-project", action="store_true",
+                    help="restrict history to the current project only")
     ap.add_argument("--days", type=int, default=45)
     ap.add_argument("--stores", action="store_true")
     ap.add_argument("--budget-report", action="store_true",
@@ -380,13 +393,17 @@ def main():
               "CODE GRAPH": 1.3, "WHAT YOU SAID": 1.0}
     kind = intent_of(a.question)
     pool = []
+    only = (os.path.basename(os.path.normpath(a.project))
+            if getattr(a, "this_project", False) else None)
+    graph_rows = ([] if getattr(a, "all_projects", False)
+                  else search_graph(a.project, a.question))
     for label, rows in (("CURATED NOTES", search_notes(tset)),
                         ("PROCEDURAL (skills)", search_skills(tset)),
-                        ("CODE GRAPH", search_graph(a.project, a.question)),
+                        ("CODE GRAPH", graph_rows),
                         ("WHAT YOU SAID",
                          search_transcripts(tset, a.days,
                                             limit=int(os.environ.get("RECALL_TX_LIMIT", "12")),
-                                            question=a.question))):
+                                            question=a.question, project=only))):
         for row in rows:
             pool.append((row[0] * WEIGHT[label] * intent_bonus(row[4], kind),
                          label, row))
