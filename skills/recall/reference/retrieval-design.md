@@ -209,6 +209,39 @@ Fix: one read, and both the texts and the digest derived from the same bytes.
 Whenever a file's content and a fingerprint of that content must agree, compute
 them from a single read or they will eventually disagree.
 
+### One builder at a time, and the same key everywhere
+
+Wiring a corpus build into `SessionStart` meant two open Claude windows started
+two builds. Each read the corpus into `keep`, each truncated the file, each
+appended what it extracted, and every record both had touched landed twice.
+Measured after one burst of session starts: **50,499 lines, 22,405 distinct,
+one record present 122 times**, and two curated answers crowded out of the
+output budget by copies of newer content. `keep` then preserved the copies on
+every later incremental build, so it never healed.
+
+Two fixes, both required:
+
+- **An atomic lock** (`O_CREAT | O_EXCL`; a lock older than ten minutes is a
+  crashed builder and is taken over). A second builder exits immediately. The
+  embedder checks the same lock and skips rather than embedding a corpus that is
+  being rewritten.
+- **Dedupe with one key in both paths.** `keep` and the extraction loop share a
+  `(source, mtime, text)` set, so a full build and an incremental one produce the
+  same corpus, and an already-duplicated corpus heals on the next pass.
+
+The second fix exposed something the first could not: after a *single-process*
+full rebuild, 2,628 groups of identical records remained, **all within one file**.
+Not a race - the corpus was faithfully recording a skill body re-injected on every
+loop iteration (61 copies in one session), "continue" typed a dozen times, and
+similar. Identical text at an identical file mtime carries nothing extra to
+retrieve and still costs index space, embedding time and candidate slots, so it is
+collapsed too. Key on the full text, not a prefix, so two different messages
+sharing an opening line are never merged.
+
+The regression test starts three builders against one synthetic root and asserts
+zero duplicates, at least one "already running", no lock left behind, and that a
+fourth sequential build changes nothing.
+
 ### Parallel work must not fork
 
 `model2vec.encode()` defaults to joblib multiprocessing. Under `pythonw.exe` there
@@ -235,6 +268,21 @@ depth of the first hit.
 Diagnose where a miss actually happens before tuning the ranker. "Not in the
 answer" can mean not retrieved, not ranked, or not printed - and only one of those
 is a search problem.
+
+The same diagnosis paid off a second time, months later in tool-years. After
+deduplicating the corpus, a curated case dropped to 11/12 while the generated
+suite held 150/150. The expected passage was at **rank 5** - retrieved, ranked,
+never printed. Ranks 2, 3 and 6 through 12 were all chunks of *one* long message:
+chunking uses an 80-character overlap, so chunk k+1 opens with chunk k's tail,
+and a near-duplicate filter keyed on the first 60 characters sees every chunk as
+new. Dedup had removed the copies that used to fill the semantic candidate pool,
+the pool became more diverse, and a long competitor now crowded the budget.
+
+The fix is again in selection, not search, and it must serve both suites: a
+continuation is **deferred, not skipped**. The generated suite's gold chunk is
+sometimes a continuation, so skipping would trade one suite's failure for the
+other's. Distinct evidence prints first; continuations print if budget remains.
+Both suites went to 100% and no floor moved.
 
 **A fail-open import will hide all of this.** A syntax error in the corpus module
 made every command still print "ok" - the try/except fell back to a capped live

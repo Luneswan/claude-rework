@@ -150,6 +150,15 @@ def build(force=False):
     if not os.path.exists(CORPUS):
         print("  no corpus - run recall_index.py --build first")
         return 1
+    # Do not embed a corpus that is being rewritten underneath us. The digest
+    # would still catch the mismatch, but only after 5s of wasted embedding.
+    lock = os.path.join(CLAUDE, "recall_corpus.lock")
+    try:
+        if os.path.exists(lock) and time.time() - os.path.getmtime(lock) < 600:
+            print("  corpus is being rebuilt - embed skipped; it will run next pass")
+            return 0
+    except OSError:
+        pass
     cm = os.path.getmtime(CORPUS)
     if not force and os.path.exists(META) and os.path.exists(VECS):
         try:

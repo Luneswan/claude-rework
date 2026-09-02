@@ -429,31 +429,55 @@ def main():
     def room_for(rank, remaining):
         cap = a.budget // (_first + rank * (_taper - _first) // 3) if rank < 3             else a.budget // _taper
         return max(180, min(cap, remaining))
-    spent, printed, shown = 0, False, set()
+    state = {"spent": 0, "printed": False, "rank": 0}
+    shown = set()
     seen_heads = []
-    rank = 0
-    for weighted, label, (score, kind, where, what, body) in pool:
-        if spent >= a.budget:
-            break
-        head = re.sub(r"[^a-z0-9]+", "", body.lower())[:60]
-        if any(head and head == h for h in seen_heads):
-            continue
-        seen_heads.append(head)
+    printed_norm = []     # full normalised text of everything already printed
+    deferred = []         # continuations of an item already printed
+
+    def emit(label, score, kind, where, what, body):
         if label not in shown:
             print("")
             print("== " + label + " ==")
             shown.add(label)
         chunk = body.strip()
-        room = room_for(rank, a.budget - spent)
-        rank += 1
+        room = room_for(state["rank"], a.budget - state["spent"])
+        state["rank"] += 1
         if len(chunk) > room:
             chunk = chunk[:room].rstrip() + " ..."
         tag = " (concluded)" if kind == "concluded" else ""
         print("  [%s] %s / %s%s" % (score, where, what, tag))
         for line in chunk.splitlines()[:14]:
             print("      " + line)
-        spent += len(chunk)
-        printed = True
+        state["spent"] += len(chunk)
+        state["printed"] = True
+
+    # Distinct evidence first, continuations second. Long messages are chunked
+    # with an 80-character overlap, so chunk k+1 opens with the tail of chunk k.
+    # The head filter above cannot see that - each chunk starts differently - and
+    # one long answer took ranks 2, 3 and 6-12 while a distinct answer at rank 5
+    # never printed. A continuation is not skipped (the generated suite's gold
+    # chunk is sometimes one); it is printed after everything distinct, if budget
+    # remains. Breadth first, then depth.
+    for entry in pool:
+        if state["spent"] >= a.budget:
+            break
+        weighted, label, (score, kind, where, what, body) = entry
+        norm = re.sub(r"[^a-z0-9]+", "", body.lower())
+        head = norm[:60]
+        if any(head and head == h for h in seen_heads):
+            continue
+        if norm[:40] and any(norm[:40] in p for p in printed_norm):
+            deferred.append(entry)
+            continue
+        seen_heads.append(head)
+        printed_norm.append(norm)
+        emit(label, score, kind, where, what, body)
+    for weighted, label, (score, kind, where, what, body) in deferred:
+        if state["spent"] >= a.budget:
+            break
+        emit(label, score, kind, where, what, body)
+    spent, printed = state["spent"], state["printed"]
 
     if not printed:
         print("nothing found in any store")

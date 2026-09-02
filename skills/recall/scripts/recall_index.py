@@ -172,16 +172,74 @@ def _no_window():
             "startupinfo": si}
 
 
+LOCK = os.path.join(CLAUDE, "recall_corpus.lock")
+LOCK_STALE = 600     # a lock older than this belongs to a builder that died
+
+
+def acquire_lock():
+    """One builder at a time, or the corpus fills with duplicates.
+
+    Two concurrent builds each read the corpus into `keep`, each truncate the
+    file, each append what they extracted - and every record lands twice. With a
+    hook spawning a build on every session start, two open Claude windows is all
+    it takes. Measured after one burst: 50,499 lines, 22,405 distinct, one record
+    present 122 times, and two curated answers crowded out of the budget.
+
+    Atomic create, so there is no check-then-create window. A lock older than
+    LOCK_STALE is a crashed builder and is taken over rather than waited on.
+    """
+    for _ in range(2):
+        try:
+            fd = os.open(LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, str(os.getpid()).encode())
+            os.close(fd)
+            return True
+        except FileExistsError:
+            try:
+                if time.time() - os.path.getmtime(LOCK) > LOCK_STALE:
+                    os.remove(LOCK)
+                    continue
+            except OSError:
+                pass
+            return False
+        except OSError:
+            return False
+    return False
+
+
+def release_lock():
+    try:
+        os.remove(LOCK)
+    except OSError:
+        pass
+
+
 def build(full=False, verbose=True):
     """Incremental and resumable: the corpus is appended per file and the manifest
     saved after each one, so a 7 GB first build is queryable while it runs and an
-    interruption costs one file, not the whole extraction."""
+    interruption costs one file, not the whole extraction. Serialised by a lock;
+    a second builder exits immediately rather than racing."""
+    if not acquire_lock():
+        if verbose:
+            print("  another build is already running - skipped")
+        return 0
+    try:
+        return _build(full, verbose)
+    finally:
+        release_lock()
+
+
+def _build(full, verbose):
     NL = chr(10)
     files = glob.glob(os.path.join(PROJECTS, "*", "*.jsonl"))
     manifest = {} if full else load_manifest()
     changed, total_msgs = 0, 0
 
-    keep = []
+    # Dedupe while keeping. A duplicate that ever got in used to be kept forever,
+    # because `keep` preserved every line whose source was unchanged - including
+    # the copies. Keying on (source, mtime, text) heals an already-duplicated
+    # corpus on the next incremental build instead of enshrining it.
+    keep, seen = [], set()
     if not full and os.path.exists(CORPUS):
         try:
             with open(CORPUS, encoding="utf-8", errors="replace") as fh:
@@ -194,8 +252,13 @@ def build(full=False, verbose=True):
                     if not src or src not in manifest or not os.path.exists(src):
                         continue
                     st = os.stat(src)
-                    if manifest[src] == [int(st.st_mtime), st.st_size]:
-                        keep.append(line.rstrip(NL))
+                    if manifest[src] != [int(st.st_mtime), st.st_size]:
+                        continue
+                    key = (src, r.get("t"), r.get("m", ""))
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    keep.append(line.rstrip(NL))
         except Exception:
             keep = []
 
@@ -219,8 +282,18 @@ def build(full=False, verbose=True):
     for i, (f, sig, size) in enumerate(stale, 1):
         proj = os.path.basename(os.path.dirname(f))
         msgs = extract(f)
+        # Same key as `keep`, so a full build and an incremental one produce the
+        # same corpus. This also collapses genuine within-file repeats: a skill
+        # body re-injected on every loop iteration landed 61 times in one
+        # session, and 2,628 such groups were a third of the corpus. Identical
+        # text at an identical file mtime carries nothing extra to retrieve and
+        # still costs index space, embedding time and candidate slots.
         with open(CORPUS, "a", encoding="utf-8", newline=NL) as fh:
             for role, m in msgs:
+                key = (f, sig[0], m)
+                if key in seen:
+                    continue
+                seen.add(key)
                 fh.write(json.dumps({"f": f, "p": proj, "t": sig[0], "r": role,
                                      "m": m}, ensure_ascii=False) + NL)
         manifest[f] = sig

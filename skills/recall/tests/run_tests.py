@@ -64,7 +64,7 @@ one two use used using need needs want wants thing things way ways not no yes ok
 # the real gate: it regenerates from the current corpus every run, so it measures
 # retrieval rather than memory of one afternoon.
 FLOORS = {"known_item": 0.95, "curated": 1.0, "stress": 1.0, "smoke": 1.0,
-          "capture": 1.0, "vectors": 1.0, "federation": 1.0}
+          "capture": 1.0, "vectors": 1.0, "federation": 1.0, "concurrency": 1.0}
 
 
 def sh(args, timeout=180):
@@ -692,6 +692,75 @@ def suite_federation(verbose=False):
     return rate
 
 
+# ------------------------------------------------------------ concurrency ----
+# A hook starts a corpus build on every session open, so two Claude windows is
+# two builds at once. Before the lock that produced a corpus that was 56%
+# duplicates on the real machine. Three builders, one root, zero duplicates.
+
+def suite_concurrency(verbose=False):
+    indexer = os.path.abspath(os.path.join(HERE, "..", "scripts", "recall_index.py"))
+    if not os.path.exists(indexer):
+        print("  concurrency: indexer missing, skipped")
+        return None
+    tmp = tempfile.mkdtemp(prefix="conc-")
+    root = os.path.join(tmp, ".claude")
+    proj = os.path.join(root, "projects", "sim")
+    os.makedirs(proj)
+    bad = []
+    try:
+        rnd = random.Random(3)
+        for fno in range(3):
+            with open(os.path.join(proj, "s%d.jsonl" % fno), "w",
+                      encoding="utf-8", newline="\n") as fh:
+                for i in range(60):
+                    words = " ".join("w%d" % rnd.randint(0, 400) for _ in range(40))
+                    fh.write(json.dumps({"type": "user", "message": {
+                        "content": "file %d message %d %s" % (fno, i, words)}}) + "\n")
+        env = dict(os.environ)
+        env.update({"RECALL_HOME": root, "PYTHONIOENCODING": "utf-8"})
+        procs = [subprocess.Popen([sys.executable, indexer, "--build"], env=env,
+                                  cwd=root, stdout=subprocess.PIPE,
+                                  stderr=subprocess.PIPE) for _ in range(3)]
+        outs = [p.communicate(timeout=300)[0].decode("utf-8", "replace") for p in procs]
+        skipped = sum("already running" in o for o in outs)
+
+        corpus = os.path.join(root, "recall_corpus.jsonl")
+        n, seen = 0, set()
+        with open(corpus, encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                n += 1
+                r = json.loads(line)
+                seen.add((r.get("f"), r.get("t"), r.get("m", "")[:200]))
+        if n == 0:
+            bad.append("no corpus produced")
+        if n != len(seen):
+            bad.append("DUPLICATES: %d lines, %d distinct" % (n, len(seen)))
+        if skipped < 1:
+            bad.append("no builder reported skipping - lock not taken")
+        if os.path.exists(os.path.join(root, "recall_corpus.lock")):
+            bad.append("lock file left behind")
+
+        # a second, sequential build must be a no-op that still dedupes cleanly
+        subprocess.run([sys.executable, indexer, "--build"], env=env, cwd=root,
+                       capture_output=True, timeout=300)
+        n2 = sum(1 for _ in open(corpus, encoding="utf-8", errors="replace"))
+        if n2 != n:
+            bad.append("sequential rebuild changed line count %d -> %d" % (n, n2))
+    except Exception as exc:
+        bad.append("crashed: %r" % (exc,))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    total = 5
+    rate = max(0.0, 1 - len(bad) / total)
+    print("  concurrency     %3d/%3d  %5.1f%%   %s"
+          % (total - len(bad), total, 100 * rate,
+             ("failed: " + "; ".join(bad[:2])) if bad else "3 builders, 0 duplicates"))
+    if verbose:
+        for b in bad:
+            print("      %s" % b)
+    return rate
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--known", type=int, default=200)
@@ -711,6 +780,7 @@ def main():
     results["capture"] = suite_capture(a.verbose)
     results["vectors"] = suite_vectors(a.verbose)
     results["federation"] = suite_federation(a.verbose)
+    results["concurrency"] = suite_concurrency(a.verbose)
 
     print()
     failed = []

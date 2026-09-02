@@ -160,7 +160,7 @@ Before the index existed a single query took **158 seconds**, and a six-question
 benchmark timed out at ten minutes. Extracting once and searching that is the
 whole trick.
 
-Seven suites, each with a floor; the run fails if any drops below it.
+Eight suites, each with a floor; the run fails if any drops below it.
 
 | suite | result | what it proves |
 |---|---|---|
@@ -171,8 +171,17 @@ Seven suites, each with a floor; the run fails if any drops below it.
 | capture | **33/33** | the hook records work, drops noise, redacts secrets |
 | vectors | **6/6** | a stale or misaligned index is refused, never guessed at |
 | federation | **28/28** | hostile input rejected without crashing |
+| concurrency | **5/5** | three builds at once produce zero duplicates and leave no lock behind |
 | foreign machines | **4/4 at 100%** | tiny, huge, non-English and sparse corpora |
 | optimizer | **100/100 clean** | no file lost, no action below the evidence threshold |
+
+The concurrency suite exists because the automatic mode created the bug it
+catches. A hook that rebuilds the index on every session start means two open
+Claude windows start two builds, and without a lock every record both touched
+landed twice: on the machine this was built on, one burst of session starts left
+the index **56% duplicates**, with one record present 122 times, and two known
+answers crowded out of the output. Now a second builder exits immediately, and an
+already-duplicated index heals itself on the next pass.
 
 ```bash
 python ~/.claude/skills/recall/tests/run_tests.py
