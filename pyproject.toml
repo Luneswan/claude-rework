@@ -3,7 +3,7 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "recl"
+name = "claude-rework"
 version = "1.2.0"
 description = "Local, automatic memory for Claude Code. Remembers past sessions in 0.7s for ~2.5k tokens instead of 211k. Nothing leaves your machine."
 readme = "README.md"
@@ -39,7 +39,7 @@ Issues = "https://github.com/Luneswan/claude-recall/issues"
 Changelog = "https://github.com/Luneswan/claude-recall/releases"
 
 [project.scripts]
-recl = "claude_recall.cli:main"
+claude-rework = "claude_recall.cli:main"
 claude-recall = "claude_recall.cli:main"
 
 [tool.setuptools.packages.find]

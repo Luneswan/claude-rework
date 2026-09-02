@@ -1,11 +1,11 @@
-"""The `recl` command (`claude-recall` is an alias).
+"""The `claude-rework` command (`claude-recall` is an alias).
 
-    recl install [--no-hooks] [--no-build]
-    recl uninstall
-    recl mcp-config
-    recl test [--known N] [--quick]
-    recl "<question>" [--budget N]      anything else is passed to recall.py
-    recl --brief --days 2
+    claude-rework install [--no-hooks] [--no-build]
+    claude-rework uninstall
+    claude-rework mcp-config
+    claude-rework test [--known N] [--quick]
+    claude-rework "<question>" [--budget N]      anything else is passed to recall.py
+    claude-rework --brief --days 2
 
 Once installed, you should rarely need this: the hooks run recall for you. The
 passthrough exists for the times you want to ask directly.
@@ -36,7 +36,7 @@ def main(argv=None):
         print(USAGE.strip())
         return 0
     if argv[0] in ("-V", "--version", "version"):
-        print("recl " + __version__)
+        print("claude-rework " + __version__)
         return 0
 
     cmd, rest = argv[0], argv[1:]
@@ -49,13 +49,13 @@ def main(argv=None):
     if cmd == "test":
         t = _installed("tests", "run_tests.py")
         if not t:
-            print("recall is not installed - run: recl install")
+            print("recall is not installed - run: claude-rework install")
             return 1
         return subprocess.call([sys.executable, t] + rest)
 
     recall = _installed("scripts", "recall.py")
     if not recall:
-        print("recall is not installed - run: recl install")
+        print("recall is not installed - run: claude-rework install")
         return 1
     return subprocess.call([sys.executable, recall] + argv)
 

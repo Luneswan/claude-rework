@@ -5,7 +5,7 @@
     iwr -useb  https://raw.githubusercontent.com/Luneswan/claude-recall/main/install.py | python -
 
 Also works as `python install.py` from a clone. Either way it ends up running
-claude_recall.installer, which is what `pip install recl && recl install`
+claude_recall.installer, which is what `pip install claude-rework && claude-rework install`
 runs too. One code path, three ways in.
 
 When run from stdin there is no repo on disk and no __file__; this fetches the

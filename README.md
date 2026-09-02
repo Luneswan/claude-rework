@@ -1,18 +1,18 @@
-# recl
+# claude-rework
 
 **Local, automatic memory for Claude Code.** Claude forgets everything between
 sessions; this makes it remember, without burning your context window.
 
-[![PyPI](https://img.shields.io/pypi/v/recl?label=pypi)](https://pypi.org/project/recl/)
+[![PyPI](https://img.shields.io/pypi/v/claude-rework?label=pypi)](https://pypi.org/project/claude-rework/)
 [![CI](https://github.com/Luneswan/claude-recall/actions/workflows/ci.yml/badge.svg)](https://github.com/Luneswan/claude-recall/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/pypi/pyversions/recl)](https://pypi.org/project/recl/)
+[![Python](https://img.shields.io/pypi/pyversions/claude-rework)](https://pypi.org/project/claude-rework/)
 [![License: MIT](https://img.shields.io/github/license/Luneswan/claude-recall)](LICENSE)
 
 Install it once. After that you never type a command: ask Claude a question about
 your own past work, in plain English, and the answer is already in front of it.
 
 ```bash
-pip install recl && recl install
+pip install claude-rework && claude-rework install
 ```
 
 No pip? One line, any OS:

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Install recall into ~/.claude.
 
-    recl install                 everything: skill, hooks, first index build
-    recl install --no-hooks      skill only, settings.json untouched
-    recl install --no-build      install but skip the first index build
-    recl mcp-config              print the Claude desktop app config
-    recl uninstall               remove everything this installer added
+    claude-rework install                 everything: skill, hooks, first index build
+    claude-rework install --no-hooks      skill only, settings.json untouched
+    claude-rework install --no-build      install but skip the first index build
+    claude-rework mcp-config              print the Claude desktop app config
+    claude-rework uninstall               remove everything this installer added
 
 After this, you do not type recall commands. Four hooks make it work on its own:
 
@@ -233,7 +233,7 @@ def uninstall():
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(prog="recl install")
+    ap = argparse.ArgumentParser(prog="claude-rework install")
     ap.add_argument("--no-hooks", action="store_true")
     ap.add_argument("--no-build", action="store_true")
     ap.add_argument("--mcp-config", action="store_true")
@@ -271,7 +271,7 @@ def main(argv=None):
     print('      "where did we leave off yesterday?"')
     print()
     print("  Manual use, if you want it:")
-    print('      recl "<question>"')
+    print('      claude-rework "<question>"')
     print()
     print_mcp()
     return 0
