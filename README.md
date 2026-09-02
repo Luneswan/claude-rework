@@ -293,6 +293,34 @@ To see what the profile currently knows about you:
 claude-rework profile
 ```
 
+### Keeping internal names out of a bundle
+
+Credentials are stripped automatically. Everything else that is sensitive is
+sensitive only to you, so you say what it is. Create `~/.claude/.reworkignore`:
+
+```
+# one per line; blank lines and # comments ignored
+Northwind Trading
+re:ACME-\d{4,}
+```
+
+A plain line is matched literally and case-insensitively. Prefix a line with
+`re:` for a regular expression. Check it before you rely on it:
+
+```bash
+claude-rework redact
+```
+
+That prints how many times each pattern matches your history, shows examples,
+and names any pattern that matched nothing, because a rule you believe is active
+but is not is worse than no rule at all.
+
+Patterns apply to everything a bundle carries: message text, activity records,
+notes and project context files. Your local index is never modified, since
+redacting what you can already read on your own machine helps nobody. The
+frequency map is left out of a redacted bundle entirely, so a removed term
+cannot reappear as vocabulary.
+
 ---
 
 ## Saving facts yourself
@@ -366,6 +394,7 @@ claude-rework export FILE.zip [--with-transcripts]
 claude-rework import FILE.zip
 claude-rework import-web conversations.json
 claude-rework inspect FILE.zip
+claude-rework redact
 claude-rework profile
 
 claude-rework "<question>" [--budget N] [--days N] [--this-project]

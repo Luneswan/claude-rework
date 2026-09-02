@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "claude-rework"
-version = "1.4.0"
+version = "1.5.0"
 description = "Local, automatic memory for Claude Code. Remembers past sessions in 0.7s for ~2.5k tokens instead of 211k. Nothing leaves your machine."
 readme = "README.md"
 license = "MIT"

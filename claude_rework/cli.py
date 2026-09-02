@@ -15,6 +15,7 @@ Moving between accounts and machines:
     claude-rework import FILE.zip  merge a bundle into this machine
     claude-rework inspect FILE.zip see what a bundle holds before importing
     claude-rework import-web FILE  a Claude data export, for web/app history
+    claude-rework redact           what an export would strip, and how to add more
     claude-rework profile          what Claude knows about you
 
 Asking directly (you rarely need to - the hooks do it for you):
@@ -160,6 +161,9 @@ def main(argv=None):
         if rc == 0:
             _reindex()
         return rc
+    if cmd == "redact":
+        from . import portable
+        return portable.preview_redactions(_claude())
     if cmd == "inspect":
         if not rest:
             print("usage: claude-rework inspect FILE.zip")

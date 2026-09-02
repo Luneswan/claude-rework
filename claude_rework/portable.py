@@ -41,6 +41,7 @@ import datetime
 import hashlib
 import json
 import os
+import re
 import zipfile
 
 SCHEMA = 2
@@ -284,6 +285,142 @@ def ensure_indexed(root, verbose=True):
     return os.path.exists(corpus)
 
 
+REDACT_FILE = ".reworkignore"
+REDACT_MARK = "[redacted]"
+
+
+def load_redactions(root=None):
+    """Patterns from ~/.claude/.reworkignore, applied to everything that leaves.
+
+    Credential scrubbing is automatic and not configurable, because a leaked key
+    is a leaked key. This is the other half: the strings only you know are
+    sensitive - an internal hostname, a client's name, an unreleased codename.
+    Nothing generic can guess those, so you list them:
+
+        # blank lines and # comments are ignored
+        Northwind Trading           <- literal, case-insensitive
+        re:\\bACME-\\d{4,}\\b         <- prefix with re: for a regex
+
+    Returns (rules, unusable). A bad regex is reported rather than skipped
+    silently: believing a redaction rule is active when it is not is worse than
+    having no rule at all.
+    """
+    root = root or _home()
+    path = os.path.join(root, REDACT_FILE)
+    rules, bad = [], []
+    try:
+        lines = open(path, encoding="utf-8", errors="replace").read().splitlines()
+    except OSError:
+        return rules, bad
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        try:
+            body = line[3:].strip() if line.lower().startswith("re:") else re.escape(line)
+            rules.append((re.compile(body, re.I), line))
+        except re.error as exc:
+            bad.append((line, str(exc)))
+    return rules, bad
+
+
+def redact(text, rules):
+    """Returns (text, hits)."""
+    if not text or not rules:
+        return text, 0
+    hits = 0
+    for pattern, _src in rules:
+        text, n = pattern.subn(REDACT_MARK, text)
+        hits += n
+    return text, hits
+
+
+def _redact_jsonl(path, field, rules):
+    """The whole file back as bytes, with one field of every record redacted."""
+    out, hits = [], 0
+    for rec in _read_jsonl(path):
+        new, n = redact(rec.get(field, ""), rules)
+        if n:
+            rec[field] = new
+            hits += n
+        out.append(json.dumps(rec, ensure_ascii=False))
+    return ("\n".join(out) + "\n").encode("utf-8"), hits
+
+
+def _redact_file(path, rules):
+    try:
+        raw = open(path, encoding="utf-8", errors="replace").read()
+    except OSError:
+        return b"", 0
+    new, hits = redact(raw, rules)
+    return new.encode("utf-8"), hits
+
+
+def preview_redactions(root=None, limit=10):
+    """What would be stripped, without exporting anything."""
+    root = root or _home()
+    rules, bad = load_redactions(root)
+    path = os.path.join(root, REDACT_FILE)
+    if bad:
+        print("  %d unusable pattern(s) in %s:" % (len(bad), path))
+        for line, err in bad:
+            print("    %-38s %s" % (line[:38], err))
+        print()
+    if not rules:
+        print("  no redaction patterns set")
+        print()
+        print("  An export carries your message text, your notes and each")
+        print("  project's context files. Credentials are always stripped. To")
+        print("  also strip internal names, create:")
+        print("      %s" % path)
+        print("  with one pattern per line, for example:")
+        print("      Northwind Trading")
+        print("      re:\\bACME-\\d{4,}\\b")
+        return 0
+    print("  %d pattern(s) from %s" % (len(rules), path))
+    print()
+    per_rule = {src: 0 for _p, src in rules}
+    total = shown = 0
+    for rec in _read_jsonl(os.path.join(root, CORPUS)):
+        text = rec.get("m", "")
+        first = True
+        for pattern, src in rules:
+            found = pattern.findall(text)
+            if not found:
+                continue
+            per_rule[src] += len(found)
+            total += len(found)
+            if first and shown < limit:
+                shown += 1
+                first = False
+                mt = pattern.search(text)
+                s = max(0, mt.start() - 34)
+                print("    ...%s..." % text[s:mt.end() + 34].replace("\n", " "))
+    print()
+    for _p, src in rules:
+        n = per_rule[src]
+        print("    %6d  %s" % (n, src[:60]))
+    print()
+    print("  %d match(es) in your indexed history would be removed from a bundle."
+          % total)
+    print("  Your local index is never modified.")
+
+    # A pattern that compiles but never matches is the quiet failure this whole
+    # feature exists to prevent: you believe a name is being stripped and it is
+    # not. Say so, because the file gives no other feedback.
+    dead = [src for _p, src in rules if per_rule[src] == 0]
+    if dead:
+        print()
+        print("  %d pattern(s) matched nothing. Check for a typo, or that the" % len(dead))
+        print("  text is actually in your history yet:")
+        for src in dead:
+            print("      %s" % src[:60])
+        if any(s.lower().startswith("re:") for s in dead):
+            print()
+            print("  For a regex, write the backslashes literally: re:\\bACME-\\d{4,}\\b")
+    return 0
+
+
 def export(dest, root=None, verbose=True, with_transcripts=False):
     root = root or _home()
     ensure_indexed(root, verbose)
@@ -316,17 +453,55 @@ def export(dest, root=None, verbose=True, with_transcripts=False):
     if parent:
         os.makedirs(parent, exist_ok=True)
 
+    # Your own sensitive strings never leave, if you have said what they are.
+    # Applied to the bundle only: the local index keeps the real text, because
+    # redacting what you can already read on this machine helps nobody.
+    rules, bad_rules = load_redactions(root)
+    if bad_rules and verbose:
+        print("  ! %d unusable pattern(s) in %s - NOT applied:"
+              % (len(bad_rules), os.path.join(root, REDACT_FILE)))
+        for line, err in bad_rules:
+            print("      %-34s %s" % (line[:34], err))
+    redacted = 0
+
     n_tx = 0
     with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as z:
+        if rules:
+            manifest["redaction"] = {"patterns": len(rules)}
         z.writestr("manifest.json", json.dumps(manifest, indent=2))
-        for name, path in ((CORPUS, corpus_path), (EVENTS, events_path),
-                           (DF, os.path.join(root, DF))):
-            if os.path.exists(path):
+
+        for name, path, field in ((CORPUS, corpus_path, "m"),
+                                  (EVENTS, events_path, "d")):
+            if not os.path.exists(path):
+                continue
+            if rules:
+                data, hits = _redact_jsonl(path, field, rules)
+                redacted += hits
+                z.writestr(name, data)
+            else:
                 z.write(path, name)
+        df_path = os.path.join(root, DF)
+        # The frequency map is a vocabulary list, so a redacted term would still
+        # appear in it. Rebuilt on import anyway, so it is simply left out.
+        if os.path.exists(df_path) and not rules:
+            z.write(df_path, DF)
+
         for slug, name, path in notes:
-            z.write(path, "notes/%s/%s" % (slug, name))
+            arc = "notes/%s/%s" % (slug, name)
+            if rules:
+                data, hits = _redact_file(path, rules)
+                redacted += hits
+                z.writestr(arc, data)
+            else:
+                z.write(path, arc)
         for slug, name, path in context:
-            z.write(path, "context/%s/%s" % (slug, name))
+            arc = "context/%s/%s" % (slug, name)
+            if rules:
+                data, hits = _redact_file(path, rules)
+                redacted += hits
+                z.writestr(arc, data)
+            else:
+                z.write(path, arc)
         if with_transcripts:
             base = os.path.join(root, PROJECTS)
             for p in registry:
@@ -350,6 +525,12 @@ def export(dest, root=None, verbose=True, with_transcripts=False):
         ident = len(profile.get("identity", [])) + len(profile.get("preferences", []))
         print("    profile: %d fact(s) about you, %d project path(s)"
               % (ident, len(profile.get("projects", []))))
+        if rules:
+            print("    redaction: %d pattern(s) applied, %d match(es) removed"
+                  % (len(rules), redacted))
+        else:
+            print("    redaction: none set (claude-rework redact) - credentials")
+            print("               are always stripped regardless")
         print()
         print("  On the other account or machine:")
         print("      pip install claude-rework && claude-rework install")
