@@ -4,9 +4,9 @@
 sessions; this makes it remember, without burning your context window.
 
 [![PyPI](https://img.shields.io/pypi/v/claude-rework?label=pypi)](https://pypi.org/project/claude-rework/)
-[![CI](https://github.com/Luneswan/claude-recall/actions/workflows/ci.yml/badge.svg)](https://github.com/Luneswan/claude-recall/actions/workflows/ci.yml)
+[![CI](https://github.com/Luneswan/claude-rework/actions/workflows/ci.yml/badge.svg)](https://github.com/Luneswan/claude-rework/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/pypi/pyversions/claude-rework)](https://pypi.org/project/claude-rework/)
-[![License: MIT](https://img.shields.io/github/license/Luneswan/claude-recall)](LICENSE)
+[![License: MIT](https://img.shields.io/github/license/Luneswan/claude-rework)](LICENSE)
 
 Install it once. After that you never type a command: ask Claude a question about
 your own past work, in plain English, and the answer is already in front of it.
@@ -18,10 +18,10 @@ pip install claude-rework && claude-rework install
 No pip? One line, any OS:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Luneswan/claude-recall/main/install.py | python3 -
+curl -fsSL https://raw.githubusercontent.com/Luneswan/claude-rework/main/install.py | python3 -
 ```
 ```powershell
-iwr -useb https://raw.githubusercontent.com/Luneswan/claude-recall/main/install.py | python -
+iwr -useb https://raw.githubusercontent.com/Luneswan/claude-rework/main/install.py | python -
 ```
 
 All three run the same installer. Clone it and run `python install.py` if you
@@ -38,8 +38,8 @@ read.
 
 Your transcripts are already on disk. Every decision, every bug you chased for two
 hours, every "we tried that, it didn't work" sits in `~/.claude/projects/` in
-files nobody reads. recall indexes them and wires four hooks so the index is used
-on its own.
+files nobody reads. claude-rework indexes them, installs a Claude Code skill named
+`recall`, and wires four hooks so the index is used on its own.
 
 | when | what runs | what you get |
 |---|---|---|
@@ -52,7 +52,7 @@ The second one is the point. You type:
 
 > **you:** didn't we already fix the webhook timeout?
 
-and before Claude sees your message, recall has searched 19,000 messages of your
+and before Claude sees your message, claude-rework has searched 19,000 messages of your
 own history locally and prepended the answer. Claude replies from what you
 actually decided instead of guessing.
 
@@ -74,7 +74,7 @@ There are two ways a tool can give Claude memory, and they cost very differently
 - **A hook** costs nothing until it fires, and this one fires only on the prompts
   that need it.
 
-recall uses hooks for Claude Code. That is the whole design argument: a memory
+claude-rework uses hooks for Claude Code. That is the whole design argument: a memory
 tool that permanently enlarges your context is charging you rent to save you
 money. (The desktop app cannot run hooks, so for that there is an MCP server;
 see below.)
@@ -83,7 +83,7 @@ see below.)
 
 ## Using the Claude desktop app or Cowork
 
-The desktop app cannot run hooks, so recall ships an MCP server. `install.py`
+The desktop app cannot run hooks, so claude-rework ships an MCP server. `install.py`
 prints the exact config at the end, or:
 
 ```bash
@@ -98,7 +98,7 @@ Paste it into `claude_desktop_config.json` and restart the app:
 ```json
 {
   "mcpServers": {
-    "recall": {
+    "claude-rework": {
       "command": "/path/to/python",
       "args": ["/Users/you/.claude/recall_mcp/recall_mcp.py"]
     }
@@ -127,7 +127,7 @@ is not.
 |---|---:|---|
 | paste the session into context | 26,539,949 | yes, and impossible: it is a 101 MB transcript |
 | `grep` your notes and transcripts | 211,627 | yes, and unaffordable |
-| **recall** | **2,552** | yes |
+| **claude-rework** | **2,552** | yes |
 
 Roughly **209,000 input tokens saved per history question.** The search itself
 runs on your CPU and costs nothing.
@@ -207,7 +207,7 @@ because the generated set existed.
 
 ### Other memory and token skills
 
-Every one of these was installed on the machine recall was built on. The counts
+Every one of these was installed on the machine claude-rework was built on. The counts
 come from the filesystem.
 
 | skill | files | executable code | tests | searches your transcripts | runs on its own |
@@ -222,14 +222,14 @@ come from the filesystem.
 | `timeline-report` | 1 | 0 | 0 | no | no |
 | `mempalace` | 1 | 0 | 0 | no | no |
 | `claude-mem` (plugin) | n/a | 7 | 0 | yes, via MCP | yes, via MCP |
-| **recall** | **20** | **15** | **7 suites, 400+ cases** | **yes** | **yes, via hooks** |
+| **claude-rework** | **20** | **15** | **7 suites, 400+ cases** | **yes** | **yes, via hooks** |
 
 Most of that list is advice: well-written documents telling Claude to be careful
 with context. A document cannot search 7 GB of transcripts or tell you whether it
 worked. `claude-mem` is the one genuinely comparable project, and it takes the
 MCP bet described above.
 
-**This is not a claim those skills are bad.** Several taught me things, and recall
+**This is not a claim those skills are bad.** Several taught me things, and claude-rework
 absorbs what each did well: `--budget-report` is what `context-budget` did,
 `--estimate` is `token-budget-advisor`, `--timeline` is `timeline-report`. The
 argument is narrower. One tested program beats nine overlapping documents, because
@@ -237,7 +237,7 @@ loading several memory skills at once is precisely the waste each warns about.
 
 ### The obvious alternatives
 
-| | grep | a RAG service | `/compact` | recall |
+| | grep | a RAG service | `/compact` | claude-rework |
 |---|---|---|---|---|
 | finds a decision from 3 months ago | yes, unaffordably | yes | no, it is gone | yes |
 | cost per answer | ~211k tokens | API calls | free but lossy | ~2.5k tokens |
@@ -258,7 +258,7 @@ tool output. The part that answers a question is what people typed, plus the
 minority of Claude's replies stating a conclusion. Pulled out once, that is
 11.7 MB. Same answers, 158s down to 0.33s.
 
-**2. Rank across stores, not one at a time.** recall searches your notes, your
+**2. Rank across stores, not one at a time.** claude-rework searches your notes, your
 skills, an optional code graph and your transcripts in one pass and ranks them
 together. Searching notes first and stopping sounds principled and scored worse,
 because a weak note from an unrelated project displaces the line holding the
@@ -359,9 +359,9 @@ local salt, not a hostname.
 
 - **Python 3.9+ and Claude Code.** That is the hard requirement.
 - **`numpy` and `model2vec` are optional** and buy semantic ranking. Without them
-  recall falls back to lexical scoring and still works.
+  claude-rework falls back to lexical scoring and still works.
   `pip install numpy model2vec`
-- **graphify is not required.** If a project happens to have a code graph, recall
+- **graphify is not required.** If a project happens to have a code graph, claude-rework
   uses it as one more store; if not, that store is skipped. Tested, not asserted:
   the suite runs with graphify absent from `PATH`, then again with a graph
   directory present but no binary, and both must come back clean.
@@ -386,7 +386,7 @@ touched, existing hooks are untouched, and installing twice changes nothing.
 ## Honest limitations
 
 - **Only as good as your transcripts.** A fresh Claude Code install has nothing to
-  remember, and recall says so rather than inventing something.
+  remember, and claude-rework says so rather than inventing something.
 - **`--brief` is a heuristic.** It decides a request is "done" by checking whether
   a later message reads like a conclusion about the same thing. Usually right, and
   it says out loud that it is guessing.

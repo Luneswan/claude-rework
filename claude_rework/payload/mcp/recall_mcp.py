@@ -169,7 +169,7 @@ def handle(msg):
         client = params.get("protocolVersion") or PROTOCOL
         reply(msg_id, {"protocolVersion": client,
                        "capabilities": {"tools": {}},
-                       "serverInfo": {"name": "recall", "version": "1.0.0"}})
+                       "serverInfo": {"name": "claude-rework", "version": "1.2.0"}})
     elif method == "tools/list":
         reply(msg_id, {"tools": TOOLS})
     elif method == "tools/call":

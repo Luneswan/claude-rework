@@ -158,7 +158,7 @@ def copy_tree():
 
 
 def mcp_block():
-    return json.dumps({"mcpServers": {"recall": {
+    return json.dumps({"mcpServers": {"claude-rework": {
         "command": _fwd(sys.executable),
         "args": [_fwd(os.path.join(MCP_DST, "recall_mcp.py"))]}}}, indent=2)
 

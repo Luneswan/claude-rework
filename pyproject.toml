@@ -33,20 +33,20 @@ dependencies = []
 semantic = ["numpy>=1.21", "model2vec>=0.3"]
 
 [project.urls]
-Homepage = "https://github.com/Luneswan/claude-recall"
-Repository = "https://github.com/Luneswan/claude-recall"
-Issues = "https://github.com/Luneswan/claude-recall/issues"
-Changelog = "https://github.com/Luneswan/claude-recall/releases"
+Homepage = "https://github.com/Luneswan/claude-rework"
+Repository = "https://github.com/Luneswan/claude-rework"
+Issues = "https://github.com/Luneswan/claude-rework/issues"
+Changelog = "https://github.com/Luneswan/claude-rework/releases"
 
 [project.scripts]
-claude-rework = "claude_recall.cli:main"
-claude-recall = "claude_recall.cli:main"
+claude-rework = "claude_rework.cli:main"
+claude-recall = "claude_rework.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["claude_recall*"]
+include = ["claude_rework*"]
 
 [tool.setuptools.package-data]
-"claude_recall.payload" = ["**/*"]
+"claude_rework.payload" = ["**/*"]
 
 [tool.setuptools.exclude-package-data]
 "*" = ["__pycache__/*", "*.pyc", "known_item_cases.json"]

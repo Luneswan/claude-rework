@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """One-line install, no pip required.
 
-    curl -fsSL https://raw.githubusercontent.com/Luneswan/claude-recall/main/install.py | python3 -
-    iwr -useb  https://raw.githubusercontent.com/Luneswan/claude-recall/main/install.py | python -
+    curl -fsSL https://raw.githubusercontent.com/Luneswan/claude-rework/main/install.py | python3 -
+    iwr -useb  https://raw.githubusercontent.com/Luneswan/claude-rework/main/install.py | python -
 
 Also works as `python install.py` from a clone. Either way it ends up running
-claude_recall.installer, which is what `pip install claude-rework && claude-rework install`
+claude_rework.installer, which is what `pip install claude-rework && claude-rework install`
 runs too. One code path, three ways in.
 
 When run from stdin there is no repo on disk and no __file__; this fetches the
@@ -15,7 +15,7 @@ from __future__ import annotations
 import os
 import sys
 
-REPO_ZIP = "https://github.com/Luneswan/claude-recall/archive/refs/heads/main.zip"
+REPO_ZIP = "https://github.com/Luneswan/claude-rework/archive/refs/heads/main.zip"
 
 
 def _repo_root():
@@ -23,20 +23,20 @@ def _repo_root():
         here = os.path.dirname(os.path.abspath(__file__))
     except NameError:
         here = ""
-    if here and os.path.exists(os.path.join(here, "claude_recall", "installer.py")):
+    if here and os.path.exists(os.path.join(here, "claude_rework", "installer.py")):
         return here
     import io
     import tempfile
     import urllib.request
     import zipfile
-    print("  fetching claude-recall from GitHub (one-time, ~100 KB) ...")
+    print("  fetching claude-rework from GitHub (one-time, ~100 KB) ...")
     data = urllib.request.urlopen(REPO_ZIP, timeout=60).read()
-    tmp = tempfile.mkdtemp(prefix="claude-recall-")
+    tmp = tempfile.mkdtemp(prefix="claude-rework-")
     with zipfile.ZipFile(io.BytesIO(data)) as z:
         z.extractall(tmp)
     for name in os.listdir(tmp):
         cand = os.path.join(tmp, name)
-        if os.path.exists(os.path.join(cand, "claude_recall", "installer.py")):
+        if os.path.exists(os.path.join(cand, "claude_rework", "installer.py")):
             return cand
     raise SystemExit("  ! downloaded archive did not contain the installer")
 
@@ -44,7 +44,7 @@ def _repo_root():
 def main():
     root = _repo_root()
     sys.path.insert(0, root)
-    from claude_recall.installer import main as install
+    from claude_rework.installer import main as install
     return install(sys.argv[1:])
 
 
