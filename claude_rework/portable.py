@@ -524,6 +524,147 @@ def import_bundle(src, root=None, verbose=True):
     return 0
 
 
+def _iso_to_epoch(value):
+    """Export timestamps are ISO-8601, usually with a trailing Z."""
+    if not value:
+        return 0
+    text = str(value).strip().replace("Z", "+00:00")
+    try:
+        return int(datetime.datetime.fromisoformat(text).timestamp())
+    except Exception:
+        pass
+    for fmt in ("%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S%z",
+                "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
+        try:
+            return int(datetime.datetime.strptime(str(value).strip(), fmt).timestamp())
+        except Exception:
+            continue
+    return 0
+
+
+def _export_messages(convo):
+    """(role, text) out of one exported conversation, tolerant of key names.
+
+    The export format is not versioned in a way this can rely on, so every field
+    is read defensively: a shape that changes should mean fewer messages, never
+    a crash or a wrong answer.
+    """
+    msgs = convo.get("chat_messages") or convo.get("messages") or []
+    if not isinstance(msgs, list):
+        return
+    for msg in msgs:
+        if not isinstance(msg, dict):
+            continue
+        sender = str(msg.get("sender") or msg.get("role") or "").lower()
+        role = "a" if sender.startswith("assist") else "u"
+        text = msg.get("text")
+        if not text:
+            parts = []
+            content = msg.get("content")
+            if isinstance(content, list):
+                for block in content:
+                    if isinstance(block, dict) and block.get("type") in (None, "text"):
+                        parts.append(str(block.get("text") or ""))
+                    elif isinstance(block, str):
+                        parts.append(block)
+            elif isinstance(content, str):
+                parts.append(content)
+            text = "\n".join(p for p in parts if p)
+        text = " ".join(str(text or "").split())
+        if len(text) < 12:
+            continue
+        yield role, text, _iso_to_epoch(msg.get("created_at") or convo.get("created_at"))
+
+
+def import_web(src, root=None, verbose=True):
+    """Import a Claude data export, for people whose history is not on disk.
+
+    Claude Code writes transcripts to ~/.claude/projects, so it can be indexed
+    directly. The web app and the desktop app do not: their history lives on
+    Anthropic's servers. What those users can get is a data export
+    (Settings -> Privacy -> Export data), which arrives by email as a zip
+    containing conversations.json. This reads that.
+
+    Accepts the .json or the .zip it came in.
+    """
+    root = root or _home()
+    if not os.path.exists(src):
+        print("  no such file: %s" % src)
+        return 1
+
+    raw = None
+    if src.lower().endswith(".zip"):
+        try:
+            with zipfile.ZipFile(src) as z:
+                name = next((n for n in z.namelist()
+                             if n.endswith("conversations.json")), None)
+                if not name:
+                    print("  that zip has no conversations.json in it. Files found:")
+                    for n in z.namelist()[:10]:
+                        print("    " + n)
+                    return 1
+                raw = z.read(name).decode("utf-8", "replace")
+        except Exception as exc:
+            print("  could not read the zip (%r)" % (exc,))
+            return 1
+    else:
+        try:
+            raw = open(src, encoding="utf-8", errors="replace").read()
+        except OSError as exc:
+            print("  could not read %s (%r)" % (src, exc))
+            return 1
+
+    try:
+        data = json.loads(raw)
+    except Exception as exc:
+        print("  that file is not valid JSON (%r)" % (exc,))
+        return 1
+    if isinstance(data, dict):
+        data = data.get("conversations") or [data]
+    if not isinstance(data, list):
+        print("  expected a list of conversations, found %s" % type(data).__name__)
+        return 1
+
+    os.makedirs(root, exist_ok=True)
+    corpus_path = os.path.join(root, CORPUS)
+    seen = {_key(r) for r in _read_jsonl(corpus_path)}
+    added = skipped = convos = 0
+    with open(corpus_path, "a", encoding="utf-8", newline="\n") as fh:
+        for convo in data:
+            if not isinstance(convo, dict):
+                continue
+            title = " ".join(str(convo.get("name") or "").split())[:60]
+            # One "project" per export so these are distinguishable from, and
+            # never confused with, transcripts written by Claude Code.
+            proj = "claude-web"
+            source = "claude-web-export:" + str(convo.get("uuid") or title or convos)
+            got = 0
+            for role, text, when in _export_messages(convo):
+                rec = {"f": source, "p": proj, "t": when, "r": role, "m": text,
+                       "im": 1}
+                k = _key(rec)
+                if k in seen:
+                    skipped += 1
+                    continue
+                seen.add(k)
+                fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+                added += 1
+                got += 1
+            if got:
+                convos += 1
+
+    if verbose:
+        print("  read %d conversation(s) from the export" % convos)
+        print("  added %d message(s), %d already present" % (added, skipped))
+        if not added and not skipped:
+            print()
+            print("  Nothing was imported. That usually means the export has a")
+            print("  different shape than expected. Check the file has a list of")
+            print("  conversations, each with a 'chat_messages' list.")
+            return 1
+    return 0
+
+
 def describe(src):
     """What is in a bundle, without importing it."""
     try:

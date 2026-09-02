@@ -392,21 +392,37 @@ def main():
     WEIGHT = {"CURATED NOTES": 1.6, "PROCEDURAL (skills)": 1.15,
               "CODE GRAPH": 1.3, "WHAT YOU SAID": 1.0}
     kind = intent_of(a.question)
-    pool = []
     only = (os.path.basename(os.path.normpath(a.project))
             if getattr(a, "this_project", False) else None)
     graph_rows = ([] if getattr(a, "all_projects", False)
                   else search_graph(a.project, a.question))
-    for label, rows in (("CURATED NOTES", search_notes(tset)),
-                        ("PROCEDURAL (skills)", search_skills(tset)),
-                        ("CODE GRAPH", graph_rows),
-                        ("WHAT YOU SAID",
-                         search_transcripts(tset, a.days,
-                                            limit=int(os.environ.get("RECALL_TX_LIMIT", "12")),
-                                            question=a.question, project=only))):
-        for row in rows:
-            pool.append((row[0] * WEIGHT[label] * intent_bonus(row[4], kind),
-                         label, row))
+
+    def build_pool(days):
+        out = []
+        for label, rows in (("CURATED NOTES", search_notes(tset)),
+                            ("PROCEDURAL (skills)", search_skills(tset)),
+                            ("CODE GRAPH", graph_rows),
+                            ("WHAT YOU SAID",
+                             search_transcripts(
+                                 tset, days,
+                                 limit=int(os.environ.get("RECALL_TX_LIMIT", "12")),
+                                 question=a.question, project=only))):
+            for row in rows:
+                out.append((row[0] * WEIGHT[label] * intent_bonus(row[4], kind),
+                            label, row))
+        return out
+
+    pool = build_pool(a.days)
+    # Nothing in the window is not the same as nothing at all. History imported
+    # from a web export is months old by definition, and anyone returning to a
+    # project after a break is outside a 45-day default too - both would be told
+    # "nothing found" while the answer sat just past the cutoff. Widen once and
+    # say so, rather than leaving the user to guess that --days exists.
+    if not pool and a.days < 3650:
+        pool = build_pool(36500)
+        if pool:
+            print("  (nothing in the last %d days; searched all history instead)"
+                  % a.days, file=sys.stderr)
     pool.sort(key=lambda x: -x[0])
 
     # One long item must not eat the whole budget. Diagnosed: the chunk holding

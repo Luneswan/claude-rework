@@ -14,6 +14,7 @@ Moving between accounts and machines:
     claude-rework export FILE.zip  projects, paths, context, history, profile
     claude-rework import FILE.zip  merge a bundle into this machine
     claude-rework inspect FILE.zip see what a bundle holds before importing
+    claude-rework import-web FILE  a Claude data export, for web/app history
     claude-rework profile          what Claude knows about you
 
 Asking directly (you rarely need to - the hooks do it for you):
@@ -142,6 +143,20 @@ def main(argv=None):
             return 2
         from . import portable
         rc = portable.import_bundle(rest[0])
+        if rc == 0:
+            _reindex()
+        return rc
+    if cmd == "import-web":
+        if not rest:
+            print("usage: claude-rework import-web conversations.json")
+            print()
+            print("  For history that lives in the Claude web or desktop app rather")
+            print("  than on disk. Get the file from Claude ->  Settings -> Privacy")
+            print("  -> Export data; it arrives by email as a zip. Pass the zip or")
+            print("  the conversations.json inside it.")
+            return 2
+        from . import portable
+        rc = portable.import_web(rest[0])
         if rc == 0:
             _reindex()
         return rc

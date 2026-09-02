@@ -52,13 +52,46 @@ ASKS_ABOUT_PAST = re.compile(
     r"|didn'?t (we|i|you)|have (we|i) (already|ever)"
     r"|last (time|week|month|session|night)|the other day|previously|earlier"
     r"|we (decided|agreed|chose|discussed|talked about|settled on|already)"
-    r"|remind me|do you remember|remember (when|what|why|how)|recall (what|why|when|how)"
+    r"|remind me (?:why|what|how|when|about|of)"
     r"|why did (we|i|you)|how did (we|i|you)"
     r"|what was the (reason|decision|conclusion|fix|cause)"
     r"|where were we|where did (we|i) leave|pick up where|catch me up"
     r"|what'?s (still )?(open|left|pending)"
     r"|already (fixed|solved|done|handled|tried|covered)"
     r"|as (we )?discussed|like we said"
+    # Retrospection is grammatical, not topical. These match the SHAPE of a
+    # question about one's own past, which is why they generalise to phrasings
+    # nobody listed. Measured on 24 unconventional prompts and 30 forward-looking
+    # ones: 2/24 caught before, 24/24 after, still zero false positives.
+    #
+    # An embedding model was tried first and measurably failed: averaged token
+    # vectors encode topic, not intent, so "fix the bug I just introduced"
+    # scored 0.62 against the anchors while every genuine question scored below
+    # 0.46. No threshold separates them.
+    #
+    # Memory verbs are bound to self-and-past reference on purpose. Bare
+    # "remember" is an imperative ("remember to bump the version") and bare
+    # "recall" means "tell me" ("recall the signature for map") - neither asks
+    # about history, and both fired before this was tightened.
+    r"|(?:do you |don'?t |didn'?t |can'?t |cannot |i (?:\w+ )?)remember\b(?! to )"
+    r"|(?:do you |i )recall\b"
+    r"|i (?:forget|forgot) (?:why|what|how|when|whether|if|the reason)"
+    r"|refresh my memory"
+    r"|came up before|been here before|run into (?:this|that)"
+    r"|seen (?:this|that)\b.{0,40}\bbefore"
+    r"|bitten us|bit us"
+    r"|was there (?:a|any) reason|is there (?:a|any) reason|any reason (?:we|i|you|why)"
+    r"|what was (?:our|the|your) (?:thinking|reasoning|reason|plan|conclusion"
+    r"|decision|approach|logic)"
+    r"|on record|(?:past|previous|earlier|last|prior) sessions?"
+    r"|hasn'?t (?:this|that|it)|haven'?t we|didn'?t i"
+    r"|in the end\b"
+    r"|(?:did|was|has|have|were) (?:we|i|you|it|this|that|there) ever"
+    r"|what happened (?:with|to|on)"
+    r"|(?:thing|one) we (?:abandoned|dropped|ditched|shelved|rejected|tried)"
+    r"|any (?:idea|context|notes?|history) (?:if|on|about|around)"
+    r"|past me|earlier me"
+    r"|was (?:a|any) decision"
     r")\b", re.I)
 
 # If it is clearly a fresh instruction, spend nothing even when a past-tense

@@ -266,6 +266,27 @@ It prints when the bundle was made, what it holds, and which projects are in it.
 The bundle itself is an ordinary zip file, so you can open it, read it, and
 delete anything you would rather not carry across before importing.
 
+### If your history is in the web or desktop app
+
+Claude Code writes transcripts to disk, so they can be indexed directly. The web
+app and the desktop app do not: that history lives on Anthropic's servers. You
+can still bring it in.
+
+In Claude, go to Settings, then Privacy, then Export data. Anthropic emails you
+a zip containing `conversations.json`. Pass either the zip or the json:
+
+```bash
+claude-rework import-web conversations.json
+```
+
+Those conversations become searchable like anything else. They are tagged as
+coming from the export, so they are never confused with transcripts written on
+this machine, and importing the same file twice adds nothing.
+
+Exported history is months old by definition, so a search that finds nothing in
+the default 45-day window automatically widens to your whole history and says
+so.
+
 To see what the profile currently knows about you:
 
 ```bash
@@ -343,6 +364,7 @@ claude-rework mcp-config
 
 claude-rework export FILE.zip [--with-transcripts]
 claude-rework import FILE.zip
+claude-rework import-web conversations.json
 claude-rework inspect FILE.zip
 claude-rework profile
 
@@ -464,15 +486,24 @@ distinctive word removed so nothing passes by exact match.
 
 ## Limitations
 
-It is only as good as your transcripts. A fresh Claude install has nothing to
-remember, and it says so rather than inventing something.
+It is only as good as the history you give it. A fresh Claude Code install has
+no transcripts yet, so there is nothing to remember on day one. If your history
+is elsewhere, bring it: `import` from another machine or account, or `import-web`
+from a Claude data export.
 
 `--brief` decides a request is finished by checking whether a later message reads
 like a conclusion about the same thing. It is usually right, and it tells you it
 is a heuristic.
 
-The automatic lookup triggers on phrasing, not understanding. If you ask about
-the past in an unusual way it stays quiet, and you can ask directly.
+The automatic lookup matches the grammar of a question about the past rather
+than understanding intent. It was measured on 24 unconventional phrasings and 30
+forward-looking prompts: it catches all 24 and fires on none of the 30. Ask in a
+way it has no grammatical handle on and it stays quiet, and you can ask directly.
+
+An embedding model was tried for this first and measurably failed. Averaged token
+vectors encode topic, not intent, so "fix the bug I just introduced" scored
+higher against the anchors than every genuine question about the past. There was
+no threshold that separated them, so it was not shipped.
 
 Every ranking threshold was tuned on one person's corpus. That is why the test
 suite builds synthetic machines with unrelated vocabularies, in different
