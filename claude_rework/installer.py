@@ -237,12 +237,26 @@ def mcp_block():
 def connect_desktop(info):
     surf = info["surfaces"]["claude_desktop"]
     path = surf["config"]
-    if not surf["present"]:
-        print("  desktop app        not found (skipped)")
+    if not surf.get("app_installed") and not surf.get("config_exists"):
+        print("  desktop app        not installed (nothing to connect)")
         return None
     if not surf["settings_parses"]:
         print("  ! %s will not parse - refusing to touch it" % path)
         return False
+
+    # The app writes this file on its first launch, so an app that is installed
+    # but has never been opened has neither the file nor its directory. Skipping
+    # that case is why the desktop app could sit unconnected forever while
+    # reporting "not found": create both, and the app reads it when it starts.
+    parent = os.path.dirname(path)
+    fresh = not os.path.exists(path)
+    if parent and not os.path.isdir(parent):
+        try:
+            os.makedirs(parent, exist_ok=True)
+        except OSError as exc:
+            print("  desktop app        cannot create %s (%s)" % (parent, exc))
+            return False
+
     cfg = _load_json(path)
     servers = cfg.setdefault("mcpServers", {})
     want = mcp_entry()
@@ -251,7 +265,8 @@ def connect_desktop(info):
         return True
     servers[MCP_KEY] = want
     _save_json(path, cfg)
-    print("  desktop app        connected via mcp - restart the app to load it")
+    print("  desktop app        connected via mcp%s - restart the app to load it"
+          % (" (config created)" if fresh else ""))
     return True
 
 
@@ -268,6 +283,189 @@ def disconnect_desktop(info):
         del cfg["mcpServers"][MCP_KEY]
         _save_json(path, cfg)
         print("  desktop app        disconnected")
+
+
+VERSION_FILE = os.path.join(CLAUDE, "recall_installed.json")
+
+# MCP keys earlier versions registered under, before the rename to
+# claude-rework. Left in place they run a server path that no longer exists, so
+# the desktop app shows a broken entry forever.
+LEGACY_MCP_KEYS = ("claude-recall", "recall")
+
+
+def _installed_version():
+    try:
+        with open(VERSION_FILE, encoding="utf-8") as fh:
+            return (json.load(fh) or {}).get("version") or ""
+    except (OSError, ValueError):
+        return ""
+
+
+def _write_version():
+    import datetime
+    try:
+        os.makedirs(os.path.dirname(VERSION_FILE), exist_ok=True)
+        with open(VERSION_FILE, "w", encoding="utf-8") as fh:
+            json.dump({"version": __version__,
+                       "installed": datetime.datetime.now().isoformat(
+                           timespec="seconds")}, fh)
+    except OSError:
+        pass
+
+
+def clean_stale():
+    """Throw away our own leftovers, so re-running install is also a repair.
+
+    Re-running the installer is what people actually do when something is off,
+    so it has to fix things and not just add to them. Removed here:
+
+      - our hook entries registered twice for the same event (older versions
+        appended without checking, so a few re-installs left duplicates that
+        each fired)
+      - our hook entries whose interpreter no longer exists, which fail
+        silently every session
+      - our hook entries whose command carries Windows backslashes, which bash
+        eats before the hook ever runs
+      - MCP entries under the names earlier versions used, which point at a
+        server path that is gone
+      - compiled caches in our own tree
+
+    Only entries whose command names one of our own scripts are considered.
+    Another plugin's hooks, and files we do not ship, are never touched.
+    """
+    removed = []
+
+    try:
+        settings = _load_json(SETTINGS)
+    except Exception:
+        settings = None
+    if isinstance(settings, dict) and settings.get("hooks"):
+        seen, changed = set(), False
+        for event in list(settings["hooks"].keys()):
+            groups = settings["hooks"].get(event) or []
+            keep_groups = []
+            for g in groups:
+                if not isinstance(g, dict):
+                    keep_groups.append(g)
+                    continue
+                hooks = g.get("hooks") or []
+                keep_hooks, had_ours = [], False
+                for h in hooks:
+                    cmd = (h or {}).get("command") or ""
+                    script = next((s for s in HOOK_SCRIPTS if s in cmd), "")
+                    if not script:
+                        keep_hooks.append(h)
+                        continue
+                    had_ours = True
+                    # Check what is *wrong* with the entry before checking
+                    # whether it is a repeat: when both are true, "interpreter
+                    # no longer exists" tells the reader something they can act
+                    # on, and "registered twice" does not.
+                    reason = ""
+                    if "\\" in cmd:
+                        reason = "backslashes bash would eat"
+                    else:
+                        try:
+                            exe = (cmd.split('"')[1] if cmd.startswith('"')
+                                   else cmd.split()[0])
+                        except IndexError:
+                            exe = ""
+                        if exe and not os.path.exists(exe):
+                            reason = "interpreter no longer exists"
+                    if not reason and (event, script) in seen:
+                        reason = "registered twice"
+                    if reason:
+                        removed.append("%s hook - %s" % (event, reason))
+                        changed = True
+                        continue
+                    seen.add((event, script))
+                    keep_hooks.append(h)
+                if keep_hooks:
+                    g["hooks"] = keep_hooks
+                    keep_groups.append(g)
+                elif not had_ours:
+                    keep_groups.append(g)
+                else:
+                    changed = True          # the group held only dead entries
+            if keep_groups:
+                settings["hooks"][event] = keep_groups
+            else:
+                del settings["hooks"][event]
+                changed = True
+        if changed:
+            _save_json(SETTINGS, settings)
+
+    desktop = _detect.desktop_config_path()
+    if os.path.exists(desktop):
+        try:
+            cfg = _load_json(desktop)
+            servers = cfg.get("mcpServers") or {}
+            gone = [k for k in LEGACY_MCP_KEYS if k in servers]
+            for k in gone:
+                del servers[k]
+            if gone:
+                _save_json(desktop, cfg)
+                removed.append("desktop mcp entry: %s" % ", ".join(gone))
+        except Exception:
+            pass
+
+    for base in (SKILL_DST, MCP_DST):
+        for dirpath, dirnames, _files in os.walk(base):
+            for d in list(dirnames):
+                if d == "__pycache__":
+                    shutil.rmtree(os.path.join(dirpath, d), ignore_errors=True)
+                    dirnames.remove(d)
+
+    if removed:
+        print("  cleaned            %d stale item(s):" % len(removed))
+        for r in removed:
+            print("      - %s" % r)
+    return removed
+
+
+def connect_path():
+    """Make `claude-rework` work in a new terminal, without being asked.
+
+    pip puts the console script in its scripts directory; on a Windows --user
+    install that directory is not on PATH, so the command a first-time user has
+    just been told to run reports "not recognized". Printing advice was not
+    enough - people hit that wall and stop - so install does it, the same way
+    every other step here is done for them.
+    """
+    from . import pathfix
+    state = pathfix.path_state()
+    if state["persisted"]:
+        print("  command            `claude-rework` already on PATH")
+        return True
+    out = pathfix.add_scripts_dir_to_path(state["directory"])
+    if not out["ok"]:
+        print("  command            could not add to PATH (%s)" % out["reason"])
+        print("                     use `%s` instead"
+              % _detect.command_on_path()["module_form"])
+        return False
+    if out["changed"]:
+        print("  command            added %s to PATH" % out["directory"])
+        print("                     open a NEW terminal for `claude-rework` to work")
+    else:
+        print("  command            `claude-rework` already on PATH")
+    return True
+
+
+def check_skill():
+    """Report whether Claude will actually list the skill we just copied.
+
+    A SKILL.md with no `name` or `description` in its frontmatter is skipped by
+    Claude's skill loader without a word, which looks exactly like a failed
+    install. Verify it here so the difference is visible at install time rather
+    than the first time someone goes looking for it in the Skills list.
+    """
+    state = _detect.skill_state(CLAUDE)
+    if state["valid"]:
+        print("  skill              recall - listed in Claude's Skills")
+        return True
+    print("  ! skill            not usable - %s" % state["problem"])
+    print("                     %s" % state["path"])
+    return False
 
 
 # ------------------------------------------------------------------ deps ----
@@ -387,6 +585,12 @@ def doctor(verbose=True):
     if not info["index"]["corpus"]:
         problems.append(("index", "search index not built"))
 
+    # A skill Claude will not list is broken even though every file is present.
+    sk = info.get("skill") or {}
+    if not sk.get("valid"):
+        problems.append(("skill", "Claude will not list the recall skill - %s"
+                         % (sk.get("problem") or "unknown")))
+
     # PATH is advice, not breakage. Everything still works through
     # `python -m claude_rework`, and the hooks and MCP server do not use PATH at
     # all - they were written with absolute interpreter paths. Reporting this as
@@ -494,6 +698,15 @@ def uninstall():
         if os.path.exists(p):
             os.remove(p)
     print("  removed            hook scripts")
+    # Leave the environment as we found it: install added this entry, so
+    # uninstall takes it back out rather than leaving a dangling PATH member.
+    try:
+        from . import pathfix
+        out = pathfix.remove_from_path()
+        if out.get("changed"):
+            print("  removed            PATH entry (%s)" % out["reason"])
+    except Exception:
+        pass
     print()
     print("  Your memory is kept on purpose. Delete by hand if you want it gone:")
     for f in ("recall_corpus.jsonl", "recall_corpus.df.json", "recall_corpus.vec.npy",
@@ -512,6 +725,8 @@ def main(argv=None):
     ap.add_argument("--no-hooks", action="store_true", help="skip Claude Code")
     ap.add_argument("--no-desktop", action="store_true", help="skip the desktop app")
     ap.add_argument("--no-semantic", action="store_true", help="do not add extras")
+    ap.add_argument("--no-path", action="store_true",
+                    help="do not add the scripts directory to PATH")
     ap.add_argument("--no-build", action="store_true")
     ap.add_argument("--mcp-config", action="store_true")
     ap.add_argument("--uninstall", action="store_true")
@@ -522,7 +737,16 @@ def main(argv=None):
         print(mcp_block())
         return 0
 
-    print("claude-rework %s - %s" % (__version__, "repair" if a.repair else "install"))
+    was = _installed_version()
+    if a.repair:
+        headline = "repair"
+    elif was and was != __version__:
+        headline = "update %s -> %s" % (was, __version__)
+    elif was:
+        headline = "re-run (already %s) - updating and cleaning" % was
+    else:
+        headline = "install"
+    print("claude-rework %s - %s" % (__version__, headline))
     if not os.path.isdir(CLAUDE):
         print("  ! %s does not exist." % CLAUDE)
         print("    Open Claude Code once so it creates that folder, then run this again.")
@@ -537,6 +761,10 @@ def main(argv=None):
         return 0
 
     copy_tree()
+    # After the files are refreshed and before anything is reconnected: a
+    # re-run of install is how people try to fix things, so it repairs and
+    # prunes rather than only adding.
+    clean_stale()
     if a.no_hooks:
         print("  claude code        skipped (--no-hooks)")
     elif info["surfaces"]["claude_code"]["present"]:
@@ -545,9 +773,15 @@ def main(argv=None):
         print("  desktop app        skipped (--no-desktop)")
     else:
         connect_desktop(info)
+    check_skill()
+    if a.no_path:
+        print("  command            skipped (--no-path)")
+    else:
+        connect_path()
     ensure_semantic(auto=not a.no_semantic)
     if not a.no_build:
         build()
+    _write_version()
 
     print()
     print("  Done. Nothing else to configure.")
@@ -558,10 +792,18 @@ def main(argv=None):
     print()
 
     cmd = _detect.command_on_path()
-    if cmd["on_path"]:
-        print("  From any terminal, any directory:")
-        print("      claude-rework doctor      check it is still connected")
-        print("      claude-rework export memory.zip    move to another account")
+    from . import pathfix
+    if cmd["on_path"] or pathfix.path_state()["persisted"]:
+        # "persisted but not on_path" is the normal case right after we edited
+        # the environment: this very process still has the old PATH, and no OS
+        # can retrofit a variable into a running program. A new terminal has it.
+        if not cmd["on_path"]:
+            print("  In a NEW terminal (this one still has the old PATH):")
+        else:
+            print("  From any terminal, any directory:")
+        print("      claude-rework status      what is connected")
+        print("      claude-rework scan        take in everything new")
+        print("      claude-rework export      save this account's memory to a zip")
     else:
         print()
         for line in _detect.path_advice(cmd):

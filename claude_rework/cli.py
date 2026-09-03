@@ -11,12 +11,17 @@ Setup, and keeping it working:
 
 Moving between accounts and machines:
 
-    claude-rework export FILE.zip  projects, paths, context, history, profile
+    claude-rework whoami           which account is signed in right now
+    claude-rework scan             take in everything this account has
+    claude-rework export           save it to claude-rework-<account>-<date>.zip
     claude-rework import FILE.zip  merge a bundle into this machine
     claude-rework inspect FILE.zip see what a bundle holds before importing
     claude-rework import-web FILE  a Claude data export, for web/app history
     claude-rework redact           what an export would strip, and how to add more
     claude-rework profile          what Claude knows about you
+
+To copy one account's memory to another: sign into the first account, run
+`scan`, then `export`. Sign into the second and `import` the zip it wrote.
 
 Asking directly (you rarely need to - the hooks do it for you):
 
@@ -26,7 +31,6 @@ Asking directly (you rarely need to - the hooks do it for you):
     claude-rework mcp-config       print the desktop app config block
 """
 from __future__ import annotations
-import json
 import os
 import subprocess
 import sys
@@ -64,6 +68,91 @@ def _reindex():
     emb = _installed("scripts", "recall_embed.py")
     if emb:
         subprocess.call([sys.executable, emb, "--build"])
+
+
+def _corpus_lines():
+    path = os.path.join(_claude(), "recall_corpus.jsonl")
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            return sum(1 for _ in fh)
+    except OSError:
+        return 0
+
+
+def _scan(rest):
+    """Read everything this account has on disk into the index, now.
+
+    The hooks index as you go, so this exists for the moment you have just
+    signed into an account and want its whole history taken in before exporting
+    - rather than discovering at import time that half of it was never read.
+    """
+    from . import accounts
+    idx = _installed("scripts", "recall_index.py")
+    if not idx:
+        return _need_installed("scan this account")
+
+    root = _claude()
+    acct = accounts.read_account(root)
+    print("claude-rework %s - scan" % __version__)
+    print("  account            %s" % accounts.describe(account=acct))
+    print("  reading            %s" % os.path.join(root, "projects"))
+
+    # The index builder writes straight to this same stdout. Without flushing
+    # first, our buffered header lands *after* the child's progress and the
+    # output reads out of order.
+    sys.stdout.flush()
+
+    before = _corpus_lines()
+    args = [sys.executable, idx, "--build"]
+    if "--full" in rest:
+        # A rebuild from scratch, for when the corpus is suspect rather than
+        # merely behind. Incremental is the default because it is what nearly
+        # everyone wants and it is far faster.
+        args.append("--full")
+    rc = subprocess.call(args)
+    after = _corpus_lines()
+
+    emb = _installed("scripts", "recall_embed.py")
+    if emb:
+        try:
+            import numpy  # noqa: F401
+            import model2vec  # noqa: F401
+        except Exception:
+            print("  vectors            skipped (pip install numpy model2vec)")
+        else:
+            print("  vectors            building ...")
+            sys.stdout.flush()
+            subprocess.call([sys.executable, emb, "--build"])
+
+    gained = after - before
+    print("  index              %d entries%s"
+          % (after, " (+%d new)" % gained if gained > 0 else ""))
+    if rc != 0:
+        print("  ! the index builder reported an error; the live-scan fallback")
+        print("    still answers questions, but an export would carry less.")
+        return rc
+    print()
+    print("  Ready. To carry this account's memory elsewhere:")
+    print("      claude-rework export")
+    return 0
+
+
+def _whoami():
+    from . import accounts
+    root = _claude()
+    acct = accounts.read_account(root)
+    print("claude-rework %s" % __version__)
+    print("  account            %s" % accounts.describe(account=acct))
+    if acct.get("source"):
+        print("  read from          %s" % acct["source"])
+    print("  export would be    %s" % os.path.basename(
+        accounts.suggest_export_name(root, acct)))
+    print("  index              %d entries" % _corpus_lines())
+    if not (acct.get("email") or acct.get("uuid")):
+        print()
+        print("  Sign in with Claude Code once and this fills in. Export still")
+        print("  works; the zip is just named 'unknown-account'.")
+    return 0
 
 
 def _show_profile():
@@ -132,15 +221,25 @@ def main(argv=None):
         return installer.update()
     if cmd == "profile":
         return _show_profile()
+    if cmd in ("whoami", "account"):
+        return _whoami()
+    if cmd == "scan":
+        return _scan(rest)
 
     if cmd == "export":
-        from . import portable
+        from . import accounts, portable
         args = [a for a in rest if not a.startswith("-")]
-        dest = args[0] if args else "claude-rework-memory.zip"
+        # No filename given: name it after the signed-in account and the date,
+        # so several accounts' bundles can sit in one folder and still be told
+        # apart. A single fixed name made that impossible.
+        dest = args[0] if args else accounts.suggest_export_name(_claude())
         return portable.export(dest, with_transcripts="--with-transcripts" in rest)
     if cmd == "import":
         if not rest:
             print("usage: claude-rework import FILE.zip")
+            print()
+            print("  Not sure which file is which? Look inside one first:")
+            print("      claude-rework inspect FILE.zip")
             return 2
         from . import portable
         rc = portable.import_bundle(rest[0])

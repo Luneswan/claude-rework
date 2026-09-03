@@ -437,11 +437,21 @@ def export(dest, root=None, verbose=True, with_transcripts=False):
         print("  nothing to export yet - run: claude-rework install")
         return 1
 
+    # Which account this came from, as a short label only - the local part of
+    # the address, never the full address and never either UUID. Enough to tell
+    # your own bundles apart in `inspect`, which is the whole reason it is here.
+    try:
+        from . import accounts as _accounts
+        source_account = _accounts.label(root)
+    except Exception:
+        source_account = ""
+
     manifest = {
         "schema": SCHEMA,
         "tool": "claude-rework",
         "created": datetime.datetime.now().isoformat(timespec="seconds"),
         "source_machine": _machine_id(root),
+        "source_account": source_account,
         "counts": {"corpus": n_corpus, "events": n_events, "notes": len(notes),
                    "projects": len(registry), "context_files": len(context)},
         "projects": registry,
@@ -532,8 +542,12 @@ def export(dest, root=None, verbose=True, with_transcripts=False):
             print("    redaction: none set (claude-rework redact) - credentials")
             print("               are always stripped regardless")
         print()
-        print("  On the other account or machine:")
-        print("      pip install claude-rework && claude-rework install")
+        print("  On the other account or machine, one line at a time:")
+        # Not joined with && : Windows PowerShell 5.1 has no such operator, and
+        # `claude-rework` is not yet on PATH in the shell that just ran pip.
+        # `python -m claude_rework` works the moment pip finishes, everywhere.
+        print("      pip install claude-rework")
+        print("      python -m claude_rework install")
         print("      claude-rework import %s" % os.path.basename(dest))
         print()
         print("  It is a plain zip - open it and delete anything you would rather")
@@ -859,6 +873,10 @@ def describe(src):
     print("  created        %s  (schema %s, from %s)"
           % (manifest.get("created", "?"), manifest.get("schema", "?"),
              manifest.get("source_machine", "?")))
+    # Absent from bundles written before 1.6.0, which is why it is only printed
+    # when present rather than shown as "?" on every older zip.
+    if manifest.get("source_account"):
+        print("  account        %s" % manifest["source_account"])
     print("  contents       %d indexed entries, %d activity records, %d notes"
           % (c.get("corpus", 0), c.get("events", 0), c.get("notes", 0)))
     print("                 %d project(s), %d context file(s)"

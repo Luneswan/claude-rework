@@ -14,8 +14,13 @@ question about your own past work costs about 2,500 tokens and takes under a
 second, instead of 211,000 tokens and a long wait.
 
 ```bash
-pip install claude-rework && claude-rework install
+pip install claude-rework
+python -m claude_rework install
 ```
+
+One line at a time, so it works the same in cmd, PowerShell and bash - see
+[Install](#install) for the single-line form for your shell, and why the second
+command is the module and not the `claude-rework` name.
 
 After that you do not type anything. Ask Claude a question about the past in
 plain English and the answer is already in front of it.
@@ -74,9 +79,43 @@ README does not put a number on it.
 
 ## Install
 
-```bash
-pip install claude-rework && claude-rework install
+Pick the line for the terminal you are in. Both do the same two things:
+install the package, then connect it.
+
+**Windows - Command Prompt (cmd):**
+
+```bat
+pip install claude-rework && python -m claude_rework install
 ```
+
+**Windows - PowerShell:**
+
+```powershell
+pip install claude-rework; python -m claude_rework install
+```
+
+**macOS / Linux:**
+
+```bash
+pip3 install claude-rework && python3 -m claude_rework install
+```
+
+Three details worth knowing, because each one used to cost people an install:
+
+- Windows PowerShell 5.1 - the blue one, still the default on many machines -
+  has no `&&` operator. It answers `The token '&&' is not a valid statement
+  separator in this version`. PowerShell 7 accepts it; the `;` above works in
+  both.
+- The second command is `python -m claude_rework`, not `claude-rework`. pip
+  puts the `claude-rework` command in a scripts directory that a `--user`
+  install leaves off PATH, so the shell you just ran pip in cannot see it yet.
+  The module form always works.
+- `install` then **adds that directory to your PATH for you**, so `claude-rework`
+  works by name in every terminal you open afterwards. Nothing to edit, no
+  administrator rights needed. Opt out with `--no-path`.
+
+Re-running install later is always safe: it updates the files, clears out
+anything stale or broken, and leaves your memory, notes and tuning untouched.
 
 Without pip, one line, any operating system:
 
@@ -89,9 +128,17 @@ iwr -useb https://raw.githubusercontent.com/Luneswan/claude-rework/main/install.
 ```
 
 Without a terminal at all: [download the zip](https://github.com/Luneswan/claude-rework/archive/refs/heads/main.zip),
-unzip it, and double-click `install.command` on macOS or right-click
-`install.ps1` on Windows and choose *Run with PowerShell*. On Windows it offers
-to install Python for you if you do not have it. On Linux, `bash install.sh`.
+unzip it, and double-click the one for your machine:
+
+| Machine | File |
+|---|---|
+| Windows | `install.cmd` - double-click it |
+| Windows, if you prefer PowerShell | right-click `install.ps1` → *Run with PowerShell* |
+| macOS | `install.command` - double-click it |
+| Linux | `bash install.sh` |
+
+On Windows either script offers to install Python for you if you do not have
+it. All four end up running the same installer.
 
 All of these run the same installer.
 
@@ -213,21 +260,41 @@ project you work on, and everything it knew about how you work. The same happens
 on a new laptop, after a reinstall, or when moving between work and personal
 accounts.
 
-**On the old machine or account:**
+**On the account you are leaving** - sign into it, then:
 
 ```bash
-claude-rework export memory.zip
+claude-rework scan
+claude-rework export
 ```
 
-**On the new one:**
+`scan` reads that account's whole history in before you carry it, so nothing is
+left behind because no hook happened to have fired for it yet. `export` then
+writes a zip named after the account and the day:
+
+```
+claude-rework-alex-20260903.zip
+```
+
+That name matters once you have done this twice. Every export used to be called
+`memory.zip`, and two of them in one folder were impossible to tell apart. You
+can still choose the name yourself - `claude-rework export mine.zip` - and
+`claude-rework whoami` shows which account is signed in and what the file would
+be called.
+
+**On the account you are moving to** - sign into it, install, then import:
 
 ```bash
-pip install claude-rework && claude-rework install
-claude-rework import memory.zip
+pip install claude-rework
+python -m claude_rework install
+claude-rework import claude-rework-alex-20260903.zip
 ```
+
+Not sure which zip is which? `claude-rework inspect FILE.zip` prints the
+account it came from and what is inside, without importing anything.
 
 That is the whole migration. The new account can immediately answer questions
-about work that only ever happened on the old one.
+about work that only ever happened on the old one. Importing twice is a no-op,
+and an import merges - it never replaces what the new account already had.
 
 ### What the bundle contains
 
@@ -382,7 +449,7 @@ where you are.
 ## Every command
 
 ```
-claude-rework install [--no-hooks] [--no-desktop] [--no-semantic] [--no-build]
+claude-rework install [--no-hooks] [--no-desktop] [--no-semantic] [--no-build] [--no-path]
 claude-rework status
 claude-rework doctor
 claude-rework repair
@@ -390,7 +457,9 @@ claude-rework update
 claude-rework uninstall
 claude-rework mcp-config
 
-claude-rework export FILE.zip [--with-transcripts]
+claude-rework whoami
+claude-rework scan [--full]
+claude-rework export [FILE.zip] [--with-transcripts]
 claude-rework import FILE.zip
 claude-rework import-web conversations.json
 claude-rework inspect FILE.zip

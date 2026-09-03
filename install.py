@@ -5,8 +5,8 @@
     iwr -useb  https://raw.githubusercontent.com/Luneswan/claude-rework/main/install.py | python -
 
 Also works as `python install.py` from a clone. Either way it ends up running
-claude_rework.installer, which is what `pip install claude-rework && claude-rework install`
-runs too. One code path, three ways in.
+claude_rework.installer, which is what `pip install claude-rework` followed by
+`python -m claude_rework install` runs too. One code path, three ways in.
 
 When run from stdin there is no repo on disk and no __file__; this fetches the
 repository once into a temp dir and installs from there.
